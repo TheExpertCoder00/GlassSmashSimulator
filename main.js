@@ -1,11 +1,12 @@
-// Adds shatter-on-click using Shatter.* helpers.
-// Ball still shoots from the left, but pane actually breaks into falling shards.
+// Adds shatter-on-click using Shatter.* helpers, plus SFX.
 
 (() => {
   const canvas = document.getElementById('c');
   const ctx = canvas.getContext('2d');
   const hint = document.getElementById('hint');
   const resetBtn = document.getElementById('resetBtn');
+
+  const sfx = new window.SFX();
 
   let w, h, dpr;
   let pane;              // {x,y,w,h}
@@ -58,9 +59,12 @@
     const speed = 900;
     ball = { x: bx, y: by, r: 12, vx: speed*dx/len, vy: speed*dy/len, active: true };
 
-    // shatter immediately at click point (simple + snappy for commit 2)
+    // shatter immediately at click point
     shards = window.Shatter.shatterAt(pane, pane.x + 2, my, 34);
     shattered = true;
+
+    sfx.shatter();
+
     // deactivate ball after impact-ish
     setTimeout(() => { if (ball) ball.active = false; }, 200);
   });
