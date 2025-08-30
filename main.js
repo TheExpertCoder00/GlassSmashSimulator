@@ -9,6 +9,9 @@
   const sfx = new window.SFX()
   const meterFill = document.getElementById('meterFill')
   const meterCursor = document.getElementById('meterCursor')
+  const modal = document.getElementById('howtoModal')
+  const playBtn = document.getElementById('playBtn')
+  const dontShowAgain = document.getElementById('dontShowAgain')
 
   let w, h, dpr
   let basePane
@@ -110,6 +113,24 @@
   })
 
   resetBtn.addEventListener('click', reset)
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'r' || e.key === 'R') reset()
+  })
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') {
+      e.preventDefault() // stops page scroll
+      // fake a click in the center of the first pane
+      const first = panes[0]?.rect
+      if (!first || shatteredOnce) return
+      const mx = first.x + first.w/2
+      const my = first.y + first.h/2
+      const evt = new MouseEvent('pointerdown', { 
+        clientX: mx + canvas.getBoundingClientRect().left,
+        clientY: my + canvas.getBoundingClientRect().top
+      })
+      canvas.dispatchEvent(evt)
+    }
+  })
 
   let shake = 0
   function addShake(s){ shake = Math.min(22, shake + s) }
@@ -123,7 +144,26 @@
     }
   }
 
+  let inputBlocked = true
+  function showModalIfNeeded(){
+    const hide = localStorage.getItem('gss_hideHelp') === '1'
+    if (hide){
+      inputBlocked = false
+      modal.classList.add('hidden')
+    } else {
+      inputBlocked = true
+      modal.classList.remove('hidden')
+    }
+  }
+
+  playBtn.addEventListener('click', () => {
+    if (dontShowAgain.checked) localStorage.setItem('gss_hideHelp','1')
+    modal.classList.add('hidden')
+    inputBlocked = false
+  })
+
   canvas.addEventListener('pointerdown', e => {
+    if (inputBlocked) return
     if (shatteredOnce) return
     const rect = canvas.getBoundingClientRect()
     const mx = e.clientX - rect.left
@@ -264,8 +304,6 @@
   }
 
   function drawPaneRect(rect){
-    const gx = rect.x + rect.w*0.2
-    const gy = rect.y + rect.h*0.2
     const lg = ctx.createLinearGradient(rect.x, rect.y, rect.x+rect.w, rect.y+rect.h)
     lg.addColorStop(0, "rgba(170,230,255,0.10)")
     lg.addColorStop(0.5, "rgba(180,240,255,0.16)")
@@ -366,9 +404,10 @@
   resize()
   if (Economy.getCoins()==null) Economy.setCoins(0)
   if (Economy.getCrystals()==null) Economy.setCrystals(0)
-  panes = buildPanes(maxUnlocked)
+  panes = buildPanes(getMaxUnlocked())
   updateHud()
   updateBuyBtn()
   bootGlow()
+  showModalIfNeeded()
   loop()
 })()

@@ -15,14 +15,38 @@
     </header>
 
     <div id="meter">
+      <div id="crystalZone"><span>🔮 Perfect</span></div>
       <div id="meterFill"></div>
       <div id="meterCursor"></div>
     </div>
 
-
     <div id="canvas-wrap">
       <canvas id="c"></canvas>
       <div id="hint">Click the glass to shoot a ball</div>
+    </div>
+
+    <div id="howtoModal" class="modal hidden">
+      <div class="modal-card">
+        <h2>How to Play</h2>
+        <ul>
+          <li>Click the glass pane (or press <b>Space</b>) to launch the ball.</li>
+          <li>Power comes from the timing bar. Center = max power.</li>
+          <li>Break multiple panes for more coins.</li>
+          <li>Hit the <b>🔮 Perfect</b> band on the bar to earn a Crystal.</li>
+          <li>Use Coins + Crystals to buy more panes.</li>
+          <li><b>Press "R"</b> anytime to Reset the panes.</li>
+        </ul>
+        <div class="legend">
+          <span class="chip red">Low</span>
+          <span class="chip yellow">Medium</span>
+          <span class="chip green">Max</span>
+          <span class="chip crystal">🔮 Perfect (0.48–0.52)</span>
+        </div>
+        <label class="dontshow">
+          <input type="checkbox" id="dontShowAgain"> Don’t show again
+        </label>
+        <button id="playBtn" class="primary">Play</button>
+      </div>
     </div>
 
     <script defer src="shatter.js"></script>
