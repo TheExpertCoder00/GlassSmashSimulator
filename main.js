@@ -113,7 +113,7 @@
   }
 
   function paneCost() {
-    return 50 + 20 * (maxUnlocked - 1)
+    return Math.floor(200 * Math.pow(1.8, maxUnlocked - 1))
   }
 
   function updateBuyBtn() {
