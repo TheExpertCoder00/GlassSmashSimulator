@@ -23,7 +23,6 @@
   let meterDir = 1
 
   const LS_KEY = 'gss_maxPanes'
-
   function getMaxUnlocked(){ return Math.max(1, parseInt(localStorage.getItem(LS_KEY)||'1',10)||1) }
   function setMaxUnlocked(n){ localStorage.setItem(LS_KEY, String(Math.max(1,n))) }
   let maxUnlocked = getMaxUnlocked()
@@ -50,6 +49,7 @@
 
   function reset(){
     shards = []
+    sparks = []
     shatteredOnce = false
     ball = null
     hint.style.display = ''
@@ -67,6 +67,7 @@
       meterVal = Math.max(0, Math.min(1, startMeterVal + dx / meterWidth))
       meterFill.style.width = `${meterVal*100}%`
       meterCursor.style.left = `${meterVal*100}%`
+      document.getElementById('meter').style.setProperty('--cursor-x', `${meterVal*100}%`)
     }
     const upHandler = () => {
       window.removeEventListener('mousemove', moveHandler)
@@ -110,6 +111,18 @@
 
   resetBtn.addEventListener('click', reset)
 
+  let shake = 0
+  function addShake(s){ shake = Math.min(22, shake + s) }
+
+  let sparks = []
+  function emitSparks(x,y,n,spd){
+    for(let i=0;i<n;i++){
+      const a = Math.random()*Math.PI*2
+      const v = spd*(0.45+Math.random()*0.8)
+      sparks.push({x, y, vx: Math.cos(a)*v, vy: Math.sin(a)*v - v*0.15, life: 0.35+Math.random()*0.35, t:0, r: 1.5+Math.random()*1.5})
+    }
+  }
+
   canvas.addEventListener('pointerdown', e => {
     if (shatteredOnce) return
     const rect = canvas.getBoundingClientRect()
@@ -128,7 +141,7 @@
     const baseSpeed = 600
     const maxBoost = 1200
     const speed = baseSpeed + power * maxBoost
-    ball = { x: bx, y: by, r: 12, vx: speed*dx/len, vy: speed*dy/len, active: true }
+    ball = { x: bx, y: by, r: 12, vx: speed*dx/len, vy: speed*dy/len, active: true, glow: 1+power*2 }
 
     const toBreak = panesToBreakFor(power, panes.length)
     const perPaneShards = shardCountFor(power)
@@ -140,6 +153,7 @@
       shards.push(...window.Shatter.shatterAt(p, impactX, my, perPaneShards))
       panes[i].broken = true
       broke++
+      emitSparks(impactX+8, my, 22+Math.floor(power*16), 360+power*420)
     }
     shatteredOnce = true
 
@@ -149,9 +163,11 @@
     if (gainCrystal) Economy.addCrystals(gainCrystal)
     updateHud()
     updateBuyBtn()
+
     setTimeout(() => { if (ball) ball.active = false }, 200)
     const sfxIntensity = Math.min(1.5, power + 0.15*(broke-1))
     sfx.shatter({ intensity: sfxIntensity, duration: 0.55 })
+    addShake(6 + power*9 + (broke-1)*2)
   })
 
   function roundRect(ctx, x, y, w, h, r) {
@@ -170,6 +186,7 @@
     if (meterVal <= 0) { meterVal = 0; meterDir = 1 }
     meterFill.style.width = (meterVal*100).toFixed(1) + '%'
     meterCursor.style.left = (meterVal*100).toFixed(1) + '%'
+    document.getElementById('meter').style.setProperty('--cursor-x', `${(meterVal*100).toFixed(1)}%`)
 
     if (ball?.active) {
       ball.x += ball.vx * dt
@@ -180,42 +197,156 @@
         ball.vy *= -0.4
         ball.vx *= 0.98
         if (Math.abs(ball.vy) < 30) ball.active = false
+        emitSparks(ball.x, floor-2, 10, 240)
+        addShake(4)
       } else {
         ball.vy += gravity * dt
       }
     }
+
     if (shards.length) {
       for (const s of shards) {
         if (!s.dead) window.Shatter.updateShard(s, dt, { w, h, gravity })
       }
     }
+
+    if (sparks.length){
+      for (let i=sparks.length-1;i>=0;i--){
+        const sp = sparks[i]
+        sp.t += dt
+        if (sp.t >= sp.life){ sparks.splice(i,1); continue }
+        sp.vy += gravity*0.9*dt
+        sp.x += sp.vx*dt
+        sp.y += sp.vy*dt
+        if (sp.y > h-8){
+          sp.y = h-8
+          sp.vy *= -0.35
+          sp.vx *= 0.82
+        }
+      }
+    }
+
+    if (shake>0) shake *= 0.88
+  }
+
+  function drawBackground(){
+    ctx.clearRect(0,0,w,h)
+    const g = ctx.createLinearGradient(0,0,w,h)
+    g.addColorStop(0, 'rgba(20,30,45,0.9)')
+    g.addColorStop(1, 'rgba(10,14,22,0.9)')
+    ctx.fillStyle = g
+    ctx.fillRect(0,0,w,h)
+
+    ctx.globalCompositeOperation = 'lighter'
+    const r1 = ctx.createRadialGradient(w*0.2, h*0.2, 0, w*0.2, h*0.2, 260)
+    r1.addColorStop(0, 'rgba(120,200,255,0.18)')
+    r1.addColorStop(1, 'rgba(120,200,255,0.0)')
+    ctx.fillStyle = r1
+    ctx.fillRect(0,0,w,h)
+
+    const r2 = ctx.createRadialGradient(w*0.85, h*0.85, 0, w*0.85, h*0.85, 320)
+    r2.addColorStop(0, 'rgba(80,140,240,0.12)')
+    r2.addColorStop(1, 'rgba(80,140,240,0.0)')
+    ctx.fillStyle = r2
+    ctx.fillRect(0,0,w,h)
+    ctx.globalCompositeOperation = 'source-over'
+
+    ctx.fillStyle = "rgba(255,255,255,0.06)"
+    ctx.fillRect(0,h-8,w,8)
+
+    ctx.globalAlpha = 0.85
+    const vg = ctx.createRadialGradient(w/2, h/2, Math.min(w,h)*0.25, w/2, h/2, Math.max(w,h)*0.75)
+    vg.addColorStop(0,'rgba(0,0,0,0)')
+    vg.addColorStop(1,'rgba(0,0,0,0.45)')
+    ctx.fillStyle = vg
+    ctx.fillRect(0,0,w,h)
+    ctx.globalAlpha = 1
   }
 
   function drawPaneRect(rect){
-    ctx.fillStyle = "rgba(160,220,255,0.08)"
-    roundRect(ctx, rect.x, rect.y, rect.w, rect.h, 8)
+    const gx = rect.x + rect.w*0.2
+    const gy = rect.y + rect.h*0.2
+    const lg = ctx.createLinearGradient(rect.x, rect.y, rect.x+rect.w, rect.y+rect.h)
+    lg.addColorStop(0, "rgba(170,230,255,0.10)")
+    lg.addColorStop(0.5, "rgba(180,240,255,0.16)")
+    lg.addColorStop(1, "rgba(150,210,255,0.10)")
+    ctx.fillStyle = lg
+    roundRect(ctx, rect.x, rect.y, rect.w, rect.h, 12)
     ctx.fill()
-    ctx.strokeStyle = "rgba(200,240,255,0.75)"
+
+    ctx.strokeStyle = "rgba(220,245,255,0.85)"
     ctx.lineWidth = 2
-    roundRect(ctx, rect.x, rect.y, rect.w, rect.h, 8)
+    roundRect(ctx, rect.x, rect.y, rect.w, rect.h, 12)
     ctx.stroke()
+
+    ctx.save()
+    ctx.globalCompositeOperation = 'screen'
+    ctx.fillStyle = 'rgba(255,255,255,0.16)'
+    roundRect(ctx, rect.x+4, rect.y+4, rect.w-8, rect.h-8, 10)
+    ctx.fill()
+    ctx.restore()
+
+    ctx.save()
+    ctx.globalAlpha = 0.10
+    ctx.beginPath()
+    ctx.moveTo(rect.x+10, rect.y+rect.h*0.35)
+    ctx.lineTo(rect.x+rect.w-10, rect.y+rect.h*0.2)
+    ctx.moveTo(rect.x+10, rect.y+rect.h*0.7)
+    ctx.lineTo(rect.x+rect.w-10, rect.y+rect.h*0.55)
+    ctx.strokeStyle = 'white'
+    ctx.lineWidth = 3
+    ctx.stroke()
+    ctx.restore()
+  }
+
+  function drawSparks(){
+    if (!sparks.length) return
+    ctx.save()
+    ctx.globalCompositeOperation = 'lighter'
+    for (const sp of sparks){
+      const k = 1 - sp.t/sp.life
+      ctx.globalAlpha = Math.max(0, k)*0.9
+      ctx.beginPath()
+      ctx.arc(sp.x, sp.y, sp.r*(0.7+1.2*k), 0, Math.PI*2)
+      ctx.fillStyle = 'rgba(180,240,255,0.9)'
+      ctx.fill()
+      ctx.beginPath()
+      ctx.arc(sp.x, sp.y, sp.r*2.0*(k), 0, Math.PI*2)
+      ctx.fillStyle = 'rgba(120,200,255,0.35)'
+      ctx.fill()
+    }
+    ctx.restore()
+  }
+
+  function drawBall(){
+    if (!ball?.active) return
+    ctx.save()
+    ctx.shadowBlur = 28*ball.glow
+    ctx.shadowColor = 'rgba(160,220,255,0.7)'
+    ctx.fillStyle = 'rgba(255,255,255,0.95)'
+    ctx.beginPath()
+    ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2)
+    ctx.fill()
+    ctx.shadowBlur = 0
+    ctx.strokeStyle = 'rgba(0,0,0,0.45)'
+    ctx.lineWidth = 1
+    ctx.stroke()
+    ctx.restore()
   }
 
   function draw(){
-    ctx.clearRect(0,0,w,h)
-    ctx.fillStyle = "rgba(255,255,255,0.06)"
-    ctx.fillRect(0,h-8,w,8)
+    let ox = 0, oy = 0
+    if (shake>0){ ox = (Math.random()-0.5)*shake; oy = (Math.random()-0.5)*shake }
+    ctx.save()
+    ctx.translate(ox, oy)
+
+    drawBackground()
     for (let i=panes.length-1;i>=0;i--) if(!panes[i].broken) drawPaneRect(panes[i].rect)
     for (const s of shards) window.Shatter.drawShard(ctx, s)
-    if (ball?.active) {
-      ctx.beginPath()
-      ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2)
-      ctx.fillStyle = "rgba(255,255,255,0.9)"
-      ctx.fill()
-      ctx.strokeStyle = "rgba(0,0,0,0.5)"
-      ctx.lineWidth = 1
-      ctx.stroke()
-    }
+    drawSparks()
+    drawBall()
+
+    ctx.restore()
   }
 
   function loop(){
@@ -227,11 +358,17 @@
     requestAnimationFrame(loop)
   }
 
+  function bootGlow(){
+    const title = document.querySelector('h1')
+    if (title) title.classList.add('neon')
+  }
+
   resize()
   if (Economy.getCoins()==null) Economy.setCoins(0)
   if (Economy.getCrystals()==null) Economy.setCrystals(0)
   panes = buildPanes(maxUnlocked)
   updateHud()
   updateBuyBtn()
+  bootGlow()
   loop()
 })()
