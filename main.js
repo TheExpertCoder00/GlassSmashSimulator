@@ -5,6 +5,8 @@
   const resetBtn = document.getElementById('resetBtn')
   const coinsEl = document.getElementById('coins')
   const sfx = new window.SFX()
+  const meterFill = document.getElementById('meterFill')
+  const meterCursor = document.getElementById('meterCursor')
 
   let w, h, dpr
   let pane
@@ -15,10 +17,13 @@
   const gravity = 1200
   let last = performance.now()
 
+  let meterVal = 0
+  let meterDir = 1
+
   function resize() {
     dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1))
     w = canvas.clientWidth = window.innerWidth
-    h = canvas.clientHeight = window.innerHeight - document.querySelector('header').offsetHeight
+    h = canvas.clientHeight = window.innerHeight - document.querySelector('header').offsetHeight - 20
     canvas.width = Math.floor(w * dpr)
     canvas.height = Math.floor(h * dpr)
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
@@ -37,6 +42,28 @@
   }
   resetBtn.addEventListener('click', reset)
 
+  const meterWidth = 320
+
+  meterCursor.addEventListener('mousedown', (e) => {
+    const startX = e.clientX
+    const startMeterVal = meterVal
+
+    const moveHandler = (moveEvent) => {
+      const dx = moveEvent.clientX - startX
+      meterVal = Math.max(0, Math.min(1, startMeterVal + dx / meterWidth))
+      meterFill.style.width = `${meterVal * 100}%`
+      meterCursor.style.left = `${meterVal * 100}%`
+    }
+
+    const upHandler = () => {
+      window.removeEventListener('mousemove', moveHandler)
+      window.removeEventListener('mouseup', upHandler)
+    }
+
+    window.addEventListener('mousemove', moveHandler)
+    window.addEventListener('mouseup', upHandler)
+  })
+
   canvas.addEventListener('pointerdown', e => {
     if (shattered) return
     const rect = canvas.getBoundingClientRect()
@@ -44,21 +71,25 @@
     const my = e.clientY - rect.top
     if (!(mx >= pane.x && mx <= pane.x + pane.w && my >= pane.y && my <= pane.y + pane.h)) return
     hint.style.display = 'none'
+
+    const power = meterVal
     const bx = pane.x - 120
     const by = my
     const dx = mx - bx, dy = my - by
     const len = Math.hypot(dx, dy) || 1
-    const speed = 900
+    const baseSpeed = 600
+    const maxBoost = 1200
+    const speed = baseSpeed + power * maxBoost
     ball = { x: bx, y: by, r: 12, vx: speed * dx / len, vy: speed * dy / len, active: true }
 
     shards = window.Shatter.shatterAt(pane, pane.x + 2, my, 34)
     shattered = true
 
-    const mag = Math.hypot(ball.vx, ball.vy)
-    const intensity = Math.max(0.3, Math.min(1.3, mag / 1200))
+    const intensity = 0.4 + power * 1.2
     sfx.shatter({ intensity })
 
-    coins += 10
+    const gained = Math.floor(10 + power * 20)
+    coins += gained
     coinsEl.textContent = coins
     setTimeout(() => { if (ball) ball.active = false }, 200)
   })
@@ -74,6 +105,12 @@
   }
 
   function update(dt) {
+    meterVal += dt * meterDir * 0.6
+    if (meterVal >= 1) { meterVal = 1; meterDir = -1 }
+    if (meterVal <= 0) { meterVal = 0; meterDir = 1 }
+    meterFill.style.width = (meterVal * 100).toFixed(1) + '%'
+    meterCursor.style.left = (meterVal * 100).toFixed(1) + '%'
+
     if (ball?.active) {
       ball.x += ball.vx * dt
       ball.y += ball.vy * dt

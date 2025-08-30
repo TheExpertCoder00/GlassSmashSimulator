@@ -39,3 +39,32 @@ button {
   padding: 6px 10px; border-radius: 10px; cursor: pointer;
 }
 button:hover { background: rgba(255,255,255,0.12); }
+
+#meter {
+  position: relative;
+  height: 14px;
+  margin: 4px 14px;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 7px;
+  overflow: hidden;
+  background: linear-gradient(to right,
+    red 0%, yellow 30%, limegreen 50%, yellow 70%, red 100%);
+}
+
+#meterFill {
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  width: 0%;
+  background: rgba(255,255,255,0.6);
+  mix-blend-mode: overlay;
+}
+
+#meterCursor {
+  position: absolute;
+  top: 0;
+  width: 14px;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  z-index: 1;
+}
