@@ -1,5 +1,5 @@
-// Very basic canvas loop: draws a "glass pane" and a ball that flies in.
-// No shatter, no sound. This is just scaffolding.
+// Adds shatter-on-click using Shatter.* helpers.
+// Ball still shoots from the left, but pane actually breaks into falling shards.
 
 (() => {
   const canvas = document.getElementById('c');
@@ -8,9 +8,11 @@
   const resetBtn = document.getElementById('resetBtn');
 
   let w, h, dpr;
-  let pane;             // {x,y,w,h}
-  let ball = null;      // {x,y,r,vx,vy,active}
-  const gravity = 1200; // px/s^2
+  let pane;              // {x,y,w,h}
+  let shards = [];       // array of shard objects
+  let shattered = false;
+  let ball = null;       // {x,y,r,vx,vy,active}
+  const gravity = 1200;  // px/s^2
   let last = performance.now();
 
   function resize() {
@@ -33,31 +35,34 @@
   resize();
 
   function reset() {
+    shards = [];
+    shattered = false;
     ball = null;
     hint.style.display = '';
   }
   resetBtn.addEventListener('click', reset);
 
   canvas.addEventListener('pointerdown', (e) => {
+    if (shattered) return; // single-shatter for now
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
     if (!pointInRect(mx, my, pane)) return;
     hint.style.display = 'none';
 
-    // Spawn a ball at the left side aiming at the click point
+    // spawn ball from left aiming at click
     const bx = pane.x - 120;
     const by = my;
     const dx = mx - bx, dy = my - by;
     const len = Math.hypot(dx, dy) || 1;
     const speed = 900;
+    ball = { x: bx, y: by, r: 12, vx: speed*dx/len, vy: speed*dy/len, active: true };
 
-    ball = {
-      x: bx, y: by, r: 12,
-      vx: speed * dx / len,
-      vy: speed * dy / len,
-      active: true
-    };
+    // shatter immediately at click point (simple + snappy for commit 2)
+    shards = window.Shatter.shatterAt(pane, pane.x + 2, my, 34);
+    shattered = true;
+    // deactivate ball after impact-ish
+    setTimeout(() => { if (ball) ball.active = false; }, 200);
   });
 
   function pointInRect(px, py, r) {
@@ -79,7 +84,6 @@
       ball.x += ball.vx * dt;
       ball.y += ball.vy * dt;
 
-      // simple floor bounce
       const floor = h - 8;
       if (ball.y + ball.r > floor) {
         ball.y = floor - ball.r;
@@ -88,6 +92,12 @@
         if (Math.abs(ball.vy) < 30) ball.active = false;
       } else {
         ball.vy += gravity * dt;
+      }
+    }
+
+    if (shards.length) {
+      for (const s of shards) {
+        if (!s.dead) window.Shatter.updateShard(s, dt, { w, h, gravity });
       }
     }
   }
@@ -99,15 +109,20 @@
     ctx.fillStyle = "rgba(255,255,255,0.06)";
     ctx.fillRect(0, h - 8, w, 8);
 
-    // glass pane (just a rectangle with edge + fill)
-    ctx.fillStyle = "rgba(160,220,255,0.08)";
-    roundRect(ctx, pane.x, pane.y, pane.w, pane.h, 8);
-    ctx.fill();
+    // pane (only if not shattered)
+    if (!shattered) {
+      ctx.fillStyle = "rgba(160,220,255,0.08)";
+      roundRect(ctx, pane.x, pane.y, pane.w, pane.h, 8);
+      ctx.fill();
 
-    ctx.strokeStyle = "rgba(200,240,255,0.75)";
-    ctx.lineWidth = 2;
-    roundRect(ctx, pane.x, pane.y, pane.w, pane.h, 8);
-    ctx.stroke();
+      ctx.strokeStyle = "rgba(200,240,255,0.75)";
+      ctx.lineWidth = 2;
+      roundRect(ctx, pane.x, pane.y, pane.w, pane.h, 8);
+      ctx.stroke();
+    } else {
+      // draw shards
+      for (const s of shards) window.Shatter.drawShard(ctx, s);
+    }
 
     // ball
     if (ball?.active) {
