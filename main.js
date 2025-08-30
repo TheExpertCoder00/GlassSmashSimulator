@@ -3,7 +3,7 @@
   const ctx = canvas.getContext('2d')
   const hint = document.getElementById('hint')
   const resetBtn = document.getElementById('resetBtn')
-  const addPaneBtn = document.getElementById('addPaneBtn')
+  const buyPaneBtn = document.getElementById('buyPaneBtn')
   const coinsEl = document.getElementById('coins')
   const sfx = new window.SFX()
   const meterFill = document.getElementById('meterFill')
@@ -21,6 +21,19 @@
 
   let meterVal = 0
   let meterDir = 1
+
+  const LS_KEY = 'gss_maxPanes'
+
+  function getMaxUnlocked() {
+    const v = parseInt(localStorage.getItem(LS_KEY) || '1', 10)
+    return Math.max(1, v)
+  }
+
+  function setMaxUnlocked(n) {
+    localStorage.setItem(LS_KEY, String(Math.max(1, n)))
+  }
+
+  let maxUnlocked = getMaxUnlocked()
 
   function paneRectAt(i) {
     const dx = 26 * i
@@ -42,21 +55,25 @@
     const PH = Math.min(420, Math.floor(h * 0.6))
     basePane = { x: Math.floor((w - PW) / 2), y: Math.floor((h - PH) / 2), w: PW, h: PH }
     rebuildPaneRects()
+    updateBuyBtn()
   }
   window.addEventListener('resize', resize)
+
+  function buildPanes(count) {
+    const arr = []
+    for (let i = 0; i < count; i++) arr.push({ rect: paneRectAt(i), broken: false })
+    return arr
+  }
 
   function reset() {
     shards = []
     shatteredOnce = false
     ball = null
     hint.style.display = ''
-    panes = [{ rect: basePane, broken: false }]
+    maxUnlocked = getMaxUnlocked()
+    panes = buildPanes(maxUnlocked)
+    updateBuyBtn()
   }
-
-  resetBtn.addEventListener('click', reset)
-  addPaneBtn.addEventListener('click', () => {
-    panes.push({ rect: paneRectAt(panes.length), broken: false })
-  })
 
   const meterWidth = 320
 
@@ -77,22 +94,46 @@
     window.addEventListener('mouseup', upHandler)
   })
 
+  function centeredPower(v) {
+    return 1 - 2 * Math.abs(v - 0.5)
+  }
+
   function shardCountFor(power) {
-    if (power < 0.25) return 20
-    if (power <= 0.75) return 70
-    return 20
+    if (power <= 0.4) return 20
+    return 70
   }
 
   function panesToBreakFor(power, total) {
-    const k = Math.max(1, Math.round(1 + power * (total - 1)))
-    return k
+    return Math.max(1, Math.round(1 + power * (total - 1)))
   }
 
-  function coinsPerPane(power) {
-    if (power < 0.25) return 10
-    if (power <= 0.75) return 30
-    return 10
+  function coinsPerPane(rawMeter) {
+    if (rawMeter < 0.25 || rawMeter > 0.75) return 10
+    return 30
   }
+
+  function paneCost() {
+    return 50 + 20 * (maxUnlocked - 1)
+  }
+
+  function updateBuyBtn() {
+    const cost = paneCost()
+    buyPaneBtn.textContent = `Buy Pane (${cost})`
+    buyPaneBtn.disabled = coins < cost
+  }
+
+  buyPaneBtn.addEventListener('click', () => {
+    const cost = paneCost()
+    if (coins < cost) return
+    coins -= cost
+    coinsEl.textContent = coins
+    maxUnlocked += 1
+    setMaxUnlocked(maxUnlocked)
+    panes.push({ rect: paneRectAt(panes.length), broken: false })
+    updateBuyBtn()
+  })
+
+  resetBtn.addEventListener('click', reset)
 
   canvas.addEventListener('pointerdown', e => {
     if (shatteredOnce) return
@@ -104,7 +145,7 @@
     hint.style.display = 'none'
 
     const raw = meterVal
-    const power = Math.max(0, 1 - Math.abs(raw - 0.5) * 2)
+    const power = centeredPower(raw)
     const bx = first.x - 120
     const by = my
     const dx = mx - bx, dy = my - by
@@ -127,11 +168,12 @@
     }
     shatteredOnce = true
 
-    const gain = coinsPerPane(power) * broke
+    const gain = coinsPerPane(raw) * broke
     coins += gain
     coinsEl.textContent = coins
+    updateBuyBtn()
     setTimeout(() => { if (ball) ball.active = false }, 200)
-    sfx.shatter({ intensity: Math.min(1.5, meterVal + 0.15 * (broke - 1)), duration: 0.55 })
+    sfx.shatter({ intensity: Math.min(1.5, power + 0.15 * (broke - 1)), duration: 0.55 })
   })
 
   function roundRect(ctx, x, y, w, h, r) {
@@ -212,6 +254,10 @@
   }
 
   resize()
-  reset()
+  panes = buildPanes(maxUnlocked)
+  coinsEl.textContent = coins
+  updateBuyBtn()
   loop()
+
+  resetBtn.addEventListener('click', reset)
 })()
