@@ -85,13 +85,22 @@
     shards = window.Shatter.shatterAt(pane, pane.x + 2, my, 34)
     shattered = true
 
-    const intensity = 0.4 + power * 1.2
-    sfx.shatter({ intensity })
+    // Adjusted coin scaling logic based on the power value
+    let coinsGained = 0
+    if (power < 0.25) { // Left red zone
+      coinsGained = 10
+    } else if (power >= 0.25 && power <= 0.75) { // Middle green zone
+      coinsGained = 30
+    } else { // Right red zone
+      coinsGained = 10
+    }
 
-    const gained = Math.floor(10 + power * 20)
-    coins += gained
+    coins += coinsGained
     coinsEl.textContent = coins
     setTimeout(() => { if (ball) ball.active = false }, 200)
+
+    // Add sound effect when the glass is shattered
+    sfx.shatter({ intensity: meterVal, duration: 0.5 });
   })
 
   function roundRect(ctx, x, y, w, h, r) {

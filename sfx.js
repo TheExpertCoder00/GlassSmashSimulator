@@ -55,6 +55,7 @@
         this.unlocked = true;
         window.removeEventListener("pointerdown", tryResume);
         window.removeEventListener("keydown", tryResume);
+        console.log("AudioContext unlocked");
       };
       window.addEventListener("pointerdown", tryResume, { once: true });
       window.addEventListener("keydown", tryResume, { once: true });
@@ -150,6 +151,18 @@
 
       src.start(now);
       src.stop(now + duration);
+    }
+
+    testSound() {
+      const ctx = this._ctx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(440, ctx.currentTime); // A4 note for simplicity
+      gain.gain.setValueAtTime(0.5, ctx.currentTime);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 1);
     }
   }
 
