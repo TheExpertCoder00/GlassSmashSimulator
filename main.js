@@ -50,9 +50,14 @@
     const len = Math.hypot(dx, dy) || 1
     const speed = 900
     ball = { x: bx, y: by, r: 12, vx: speed * dx / len, vy: speed * dy / len, active: true }
+
     shards = window.Shatter.shatterAt(pane, pane.x + 2, my, 34)
     shattered = true
-    sfx.shatter()
+
+    const mag = Math.hypot(ball.vx, ball.vy)
+    const intensity = Math.max(0.3, Math.min(1.3, mag / 1200))
+    sfx.shatter({ intensity })
+
     coins += 10
     coinsEl.textContent = coins
     setTimeout(() => { if (ball) ball.active = false }, 200)

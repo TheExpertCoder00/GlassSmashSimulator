@@ -1,76 +1,155 @@
-// Minimal WebAudio shatter SFX (dependency-free).
-// Usage: const sfx = new SFX(); sfx.shatter();
 (function () {
   class SFX {
     constructor() {
       this.ctx = null;
+      this.master = null;
+      this.comp = null;
+      this.delay = null;
       this.unlocked = false;
       this._bindUnlock();
     }
 
-    _getCtx() {
-      if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    _ctx() {
+      if (!this.ctx) {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        this.ctx = new Ctx();
+        this._buildMaster();
+      }
       return this.ctx;
+    }
+
+    _buildMaster() {
+      const ctx = this.ctx;
+      this.comp = ctx.createDynamicsCompressor();
+      this.comp.threshold.value = -18;
+      this.comp.knee.value = 24;
+      this.comp.ratio.value = 3;
+      this.comp.attack.value = 0.002;
+      this.comp.release.value = 0.20;
+
+      this.delay = ctx.createDelay(0.4);
+      this.delay.delayTime.value = 0.08;
+      const fb = ctx.createGain();
+      fb.gain.value = 0.25;
+      const hp = ctx.createBiquadFilter();
+      hp.type = "highpass";
+      hp.frequency.value = 700;
+      this.delay.connect(hp).connect(fb).connect(this.delay);
+
+      this.master = ctx.createGain();
+      this.master.gain.value = 0.9;
+      const sum = ctx.createGain();
+
+      sum.connect(this.comp);
+      sum.connect(this.delay);
+      this.delay.connect(this.comp);
+
+      this.comp.connect(this.master).connect(ctx.destination);
+      this.bus = sum;
     }
 
     _bindUnlock() {
       const tryResume = () => {
-        const ctx = this._getCtx();
+        const ctx = this._ctx();
         if (ctx.state === "suspended") ctx.resume();
         this.unlocked = true;
         window.removeEventListener("pointerdown", tryResume);
         window.removeEventListener("keydown", tryResume);
       };
-      // Browsers require a user gesture before audio can start.
       window.addEventListener("pointerdown", tryResume, { once: true });
       window.addEventListener("keydown", tryResume, { once: true });
     }
 
-    shatter({ duration = 0.9, timeScale = 1 } = {}) {
-      const ctx = this._getCtx();
-      const now = ctx.currentTime + 0.01;
+    shatter({ intensity = 1, duration = 0.95 } = {}) {
+      const ctx = this._ctx();
+      const now = ctx.currentTime + 0.005;
+      const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+      intensity = clamp(intensity, 0.2, 1.5);
 
-      // --- noise burst (the crunchy “glass”)
+      const rootGain = ctx.createGain();
+      rootGain.gain.value = 0.85 * intensity;
+      rootGain.connect(this.bus);
+
+      const impact = ctx.createGain();
+      impact.gain.value = 1.0;
+      impact.connect(rootGain);
+
       const len = Math.floor(ctx.sampleRate * duration);
       const buf = ctx.createBuffer(1, len, ctx.sampleRate);
       const ch = buf.getChannelData(0);
       for (let i = 0; i < len; i++) {
         const t = i / len;
-        // bright noise with decay
-        ch[i] = (Math.random() * 2 - 1) * (1.0 - t) * (0.6 + 0.4 * (1.0 - t));
+        const dec = Math.pow(1 - t, 1.6);
+        ch[i] = (Math.random() * 2 - 1) * dec;
       }
-
-      const noise = ctx.createBufferSource();
-      noise.buffer = buf;
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
 
       const hp = ctx.createBiquadFilter();
       hp.type = "highpass";
-      hp.frequency.value = 1800;
+      hp.frequency.value = 1600 + 600 * intensity;
 
-      // a few resonant bands for sparkle
-      const freqs = [1800, 2400, 3200, 4000];
-      const bands = freqs.map((f, i) => {
+      const tilt = ctx.createBiquadFilter();
+      tilt.type = "peaking";
+      tilt.frequency.value = 3200;
+      tilt.Q.value = 0.7;
+      tilt.gain.value = 5 + 4 * intensity;
+
+      src.connect(hp).connect(tilt).connect(impact);
+
+      const freqs = [1700, 2200, 2800, 3500, 4300];
+      freqs.forEach((f, i) => {
         const bp = ctx.createBiquadFilter();
         bp.type = "bandpass";
-        bp.frequency.value = f;
+        bp.frequency.value = f * (1 + (Math.random() - 0.5) * 0.06);
         bp.Q.value = 8 + i * 2;
-        return bp;
+
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.5 + 0.15 * i, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.45 + 0.1 * i);
+
+        tilt.connect(bp).connect(g).connect(impact);
       });
 
-      const gain = ctx.createGain();
-      gain.gain.setValueAtTime(0.7, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + duration / timeScale);
+      const sparkleBus = ctx.createGain();
+      sparkleBus.gain.value = 0.7 * intensity;
+      sparkleBus.connect(rootGain);
 
-      // wiring
-      noise.connect(hp);
-      let tail = hp;
-      for (const b of bands) tail.connect(b);
-      const sum = ctx.createGain();
-      for (const b of bands) b.connect(sum);
-      sum.connect(gain).connect(ctx.destination);
+      const pannerL = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+      const pannerR = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+      if (pannerL && pannerR) {
+        pannerL.pan.value = -0.35;
+        pannerR.pan.value = 0.35;
+        sparkleBus.connect(pannerL).connect(rootGain);
+        sparkleBus.connect(pannerR).connect(rootGain);
+      }
 
-      noise.start(now);
-      noise.stop(now + duration / timeScale);
+      const sparkCount = 10 + Math.floor(12 * intensity);
+      for (let i = 0; i < sparkCount; i++) {
+        const t0 = now + 0.015 * i;
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        const f0 = 2200 + Math.random() * 3200;
+        const det = (Math.random() - 0.5) * 60;
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(f0 + det, t0);
+
+        g.gain.setValueAtTime(0.0, t0);
+        g.gain.linearRampToValueAtTime(0.12 + Math.random() * 0.06, t0 + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.18 + Math.random() * 0.1);
+
+        const bp = ctx.createBiquadFilter();
+        bp.type = "bandpass";
+        bp.frequency.value = f0;
+        bp.Q.value = 6;
+
+        osc.connect(bp).connect(g).connect(sparkleBus);
+        osc.start(t0);
+        osc.stop(t0 + 0.25);
+      }
+
+      src.start(now);
+      src.stop(now + duration);
     }
   }
 
