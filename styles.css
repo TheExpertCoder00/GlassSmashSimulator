@@ -1,0 +1,36 @@
+:root {
+  --bg: #0b0e12;
+  --edge: rgba(200,240,255,0.75);
+  --glass: rgba(160,220,255,0.10);
+}
+
+* { box-sizing: border-box; }
+html, body {
+  height: 100%;
+  margin: 0;
+  background: radial-gradient(1200px 600px at 30% 20%, #0f1720, var(--bg));
+  color: #e2f1ff;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+}
+
+header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+#canvas-wrap { position: relative; height: calc(100% - 56px); }
+#c { width: 100%; height: 100%; display: block; }
+
+#hint {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  padding: 8px 12px; border-radius: 10px;
+  background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.12);
+  font-size: 14px; pointer-events: none;
+}
+
+button {
+  appearance: none; border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.06); color: inherit;
+  padding: 6px 10px; border-radius: 10px; cursor: pointer;
+}
+button:hover { background: rgba(255,255,255,0.12); }
