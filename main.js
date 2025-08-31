@@ -160,6 +160,74 @@
   let gemMul = 0
   let powerWinBonus = 0
 
+
+  function hudPulse() {
+    const hc = document.getElementById('coins');
+    const hg = document.getElementById('crystals');
+    [hc, hg].forEach(el=>{
+      if (!el) return;
+      el.classList.remove('hud-pulse');
+      // Force reflow to restart animation
+      // eslint-disable-next-line no-unused-expressions
+      el.offsetWidth;
+      el.classList.add('hud-pulse');
+    });
+  }
+
+  function floatReward(x, y, text, theme='coin'){
+    const el = document.createElement('div');
+    el.className = 'reward-blip';
+    el.textContent = text;
+
+    // strong, opaque pill style
+    el.style.position = 'fixed';
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.style.zIndex = '2000';
+    el.style.pointerEvents = 'none';
+    el.style.fontFamily = 'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial';
+    el.style.fontWeight = '900';
+    el.style.fontSize = '18px';
+    el.style.letterSpacing = '0.2px';
+    el.style.padding = '6px 10px';
+    el.style.borderRadius = '999px';
+    el.style.border = '2px solid rgba(0,0,0,0.35)';
+    el.style.boxShadow = '0 6px 18px rgba(0,0,0,0.45)';
+
+    // themes: solid background + readable text
+    if (theme === 'coin'){
+      el.style.background = '#ffd54d';     // gold
+      el.style.color = '#1b1b1b';
+      el.style.textShadow = '0 1px 0 rgba(255,255,255,0.6)';
+    } else {
+      el.style.background = '#7fe4ff';     // crystal cyan
+      el.style.color = '#0b2230';
+      el.style.textShadow = '0 1px 0 rgba(255,255,255,0.65)';
+    }
+
+    // slight white stroke for extra contrast (via filter)
+    el.style.filter = 'drop-shadow(0 0 0 rgba(255,255,255,0))';
+    document.body.appendChild(el);
+
+    // animate: rise + fade + small scale up
+    const dur = 900; // ms
+    const start = performance.now();
+    const startY = y;
+    const startX = x;
+    const floatX = startX + 6; // tiny drift
+    const up = 34;
+
+    (function step(t){
+      const k = Math.min(1, (t - start)/dur);
+      const ease = 1 - Math.pow(1 - k, 3);
+      el.style.top = (startY - up*ease) + 'px';
+      el.style.left = (startX + (floatX - startX)*ease) + 'px';
+      el.style.opacity = String(1 - k*0.9);
+      el.style.transform = `translate(-50%, -50%) scale(${1 + 0.08*ease})`;
+      if (k < 1) requestAnimationFrame(step); else el.remove();
+    })(performance.now());
+  }
+
   function readActivePowerups(){
     try{
       const raw = localStorage.getItem('bbx_powerups')
@@ -355,6 +423,10 @@
       if (Economy.addCrystals) Economy.addCrystals(gainCrystal)
       else if (Economy.addGems) Economy.addGems(gainCrystal)
     }
+    // Visual feedback
+    hudPulse();
+    floatReward(e.clientX, e.clientY, `+${gainCoins}💰`);
+    if (gainCrystal) floatReward(e.clientX+16, e.clientY-10, `+${gainCrystal}🔮`, '#9fe8ff');
     consumeOneUseAllConsumables()
     updateHud()
     updateBuyBtn()
@@ -469,24 +541,34 @@
   }
 
   function drawPaneBadge(rect, extra){
-    const r = 12
-    const pad = 10
-    const x = rect.x + rect.w - pad - 32
-    const y = rect.y + pad
-    ctx.save()
-    ctx.globalAlpha = 0.9
-    ctx.fillStyle = 'rgba(15,24,40,0.75)'
-    ctx.strokeStyle = 'rgba(200,240,255,0.6)'
-    ctx.lineWidth = 1.5
-    roundRect(ctx, x, y, 32, 22, r*0.5)
-    ctx.fill()
-    ctx.stroke()
-    ctx.fillStyle = 'rgba(200,240,255,0.95)'
-    ctx.font = '12px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText('+'+extra, x+16, y+11)
-    ctx.restore()
+    const r = 14;
+    const pad = 10;
+    const x = rect.x + rect.w - pad - 40;
+    const y = rect.y + pad;
+
+    ctx.save();
+    // brighter background with gradient
+    const g = ctx.createLinearGradient(x, y, x, y+26);
+    g.addColorStop(0, 'rgba(40,80,120,0.95)');
+    g.addColorStop(1, 'rgba(20,40,80,0.95)');
+    ctx.fillStyle = g;
+    ctx.strokeStyle = 'rgba(180,240,255,0.9)';
+    ctx.lineWidth = 2.0;
+
+    roundRect(ctx, x, y, 40, 26, r*0.5);
+    ctx.fill();
+    ctx.stroke();
+
+    // text: bigger, bolder, with glow
+    ctx.fillStyle = '#eaffff';
+    ctx.font = 'bold 15px ui-sans-serif, system-ui';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(120,200,255,0.9)';
+    ctx.shadowBlur = 8;
+    ctx.fillText('+'+extra, x+20, y+13);
+
+    ctx.restore();
   }
 
   function drawPaneRect(rect){

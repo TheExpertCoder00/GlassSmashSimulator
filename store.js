@@ -324,6 +324,15 @@
     return true;
   }
 
+  function toast(msg){
+    let wrap = document.getElementById('toasts');
+    if(!wrap){ wrap = document.createElement('div'); wrap.id='toasts'; document.body.appendChild(wrap); }
+    const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
+    wrap.appendChild(t);
+    setTimeout(()=>{ t.style.opacity='0'; t.style.transform='translateY(-6px)'; }, 2200);
+    setTimeout(()=> t.remove(), 2700);
+  }
+
   // ---------- Power-up timers ----------
   const PowerTimers = (()=>{
     function read(){
@@ -465,6 +474,7 @@
         equipBtn.addEventListener('click', ()=> {
           Inventory.setEquipped(kind, item.id);
           selectCategory(cat.id); // rerender
+          toast(`Equipped: ${item.name}`);
         });
         actions.appendChild(equipBtn);
       } else {
@@ -489,11 +499,13 @@
         if (!charge(item.price)) return alert('Not enough currency.');
         PowerTimers.activate(item);
         refreshWallet();
+        toast(`Activated: ${item.name}`);
         window.dispatchEvent(new Event('bbx:walletPing'));
         // brief success state
         buyBtn.textContent = 'Activated!';
         buyBtn.classList.remove('primary'); buyBtn.classList.add('success');
         buyBtn.disabled = true; setTimeout(()=>{ selectCategory(cat.id); }, 800);
+        toast(`Purchased: ${item.name}`);
       });
       actions.appendChild(buyBtn);
       const hint = document.createElement('div'); hint.className='bbx-mini';
