@@ -78,7 +78,7 @@
         items: [
           {
             id: 'pu_power_window_10',
-            name: 'Perfect Zone +5% (10 throws)',
+            name: 'Calm Focus: Perfect Percentage +5% (10 throws)',
             price: C(500,0),
             preview: { kind: 'icon', svg: iconGauge() },
             type: 'consumable',
@@ -86,7 +86,7 @@
           },
           {
             id: 'pu_coin_doubler_5m',
-            name: 'Coin x2 (5 min)',
+            name: 'Endorphin Rush: Coin x2 (5 min)',
             price: C(800,0),
             preview: { kind: 'icon', svg: iconCoins() },
             type: 'timer',
@@ -94,7 +94,7 @@
           },
           {
             id: 'pu_gem_doubler_3m',
-            name: 'Gem x2 (3 min)',
+            name: 'Locked In: Gem x2 (3 min)',
             price: C(0,5),
             preview: { kind: 'icon', svg: iconGem() },
             type: 'timer',
@@ -489,6 +489,7 @@
         if (!charge(item.price)) return alert('Not enough currency.');
         PowerTimers.activate(item);
         refreshWallet();
+        window.dispatchEvent(new Event('bbx:walletPing'));
         // brief success state
         buyBtn.textContent = 'Activated!';
         buyBtn.classList.remove('primary'); buyBtn.classList.add('success');
@@ -512,16 +513,21 @@
 
   function refreshWallet(){
     const c = Economy.getCoins(), g = Economy.getGems();
-    const cEl = q('#bbx-wallet-coins'); const gEl = q('#bbx-wallet-gems');
-    if (cEl) cEl.textContent = fmt.format(c);
-    if (gEl) gEl.textContent = fmt.format(g);
-    // Update disabled states on visible items
-    qa('.bbx-card').forEach(card => {
-      const buyBtn = card.querySelector('.bbx-btn.primary'); if (!buyBtn) return;
-      const name = card.querySelector('.bbx-name')?.textContent || '';
-      // naive: re-enable/rebuild by reselecting the current tab
-    });
+    const cEl = q('#bbx-wallet-coins'); if (cEl) cEl.textContent = fmt.format(c);
+    const gEl = q('#bbx-wallet-gems');  if (gEl) gEl.textContent = fmt.format(g);
+
+    updateGlobalHud();
   }
+
+  function updateGlobalHud(){
+    const c = Economy.getCoins();
+    const g = Economy.getGems();
+    const hc = document.getElementById('coins');
+    const hg = document.getElementById('crystals');
+    if (hc) hc.textContent = fmt.format(c);
+    if (hg) hg.textContent = fmt.format(g);
+  }
+
   window.addEventListener('bbx:walletPing', refreshWallet);
   setInterval(refreshWallet, 1000);
   // ---------- Public API ----------
@@ -535,5 +541,5 @@
     // Optional: expose API
     window.Store = { open, close, toggle, Catalog, Inventory };
   });
-
-})(); // end IIFE
+  
+})();
