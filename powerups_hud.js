@@ -93,12 +93,10 @@
 
   // ----- Live DOM updates (no stale storage reads) -----
   function onUse(ev){
-    // We dispatch bbx:powerupUse with { id, uses } from main.js
     const { id, uses } = ev.detail || {};
     const panel = ensurePanel();
     const tile = panel.querySelector(`.pu-tile[data-id="${id}"]`);
 
-    // If we didn’t find a tile (race), fall back to full render.
     if (!tile){ render(); return; }
 
     // If now zero or below: remove instantly.
@@ -121,7 +119,6 @@
     if (fill) fill.style.width = `${(used/totalUses) * 100}%`;
   }
 
-  // live updates from your game/store
   window.addEventListener('bbx:powerupActivated', render);
   window.addEventListener('bbx:powerupExpired', render);
   window.addEventListener('bbx:powerupUse', onUse);
@@ -132,7 +129,6 @@
     const active = read();
     let changed = false;
 
-    // remove stale in storage
     for (const id of Object.keys(active)){
       const pu = active[id];
       if (pu.expiresAt && msLeft(pu.expiresAt) <= 0) { delete active[id]; changed = true; }

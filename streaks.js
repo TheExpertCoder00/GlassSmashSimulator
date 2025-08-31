@@ -64,7 +64,6 @@
     return bonus;
   }
 
-  // ====== PERFECT DETECTION (fallback if you don't dispatch your own event) ======
   function currentMeter(){
     const cursor = document.getElementById('meterCursor');
     const fill   = document.getElementById('meterFill');
@@ -75,7 +74,7 @@
   }
   function isPerfectNow(){
     const raw  = currentMeter();
-    const half = 0.02 + perfectWindowBonus(); // ±2% baseline + any power-up widening
+    const half = 0.02 + perfectWindowBonus();
     return raw >= 0.5 - half && raw <= 0.5 + half;
   }
   function isClickInsidePane(ev){
@@ -140,7 +139,7 @@
     b.style.top = Math.round(top) + 'px';
     b.style.right = BADGE_X + 'px';
   }
-  
+
   function updateBadge(){
     const b = ensureBadge();
     const s = get();
@@ -172,7 +171,6 @@
     if (document.getElementById('streaks-hide-css')) return;
     const st = document.createElement('style');
     st.id = 'streaks-hide-css';
-    // Prefer :has (Chrome/Edge/Safari support). Fallback to sibling selector.
     st.textContent = `
       body:has(#bbx-store:not(.bbx-store-hidden)) #streakBadge { opacity:0; visibility:hidden; transform:translateY(-6px); }
       #bbx-store:not(.bbx-store-hidden) ~ #streakBadge { opacity:0; visibility:hidden; transform:translateY(-6px); }

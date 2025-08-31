@@ -8,7 +8,6 @@
   --panel-border: rgba(255,255,255,0.15);
   --panel-hover: rgba(255,255,255,0.12);
 
-  /* New polish tokens */
   --accent: #8bd3ff;
   --accent-2: #60a5fa;
   --ok: #34d399;
@@ -226,14 +225,11 @@ button.primary {
 }
 @keyframes toastIn { from{ transform: translateY(10px); opacity: 0 } to{ transform:none; opacity:1 } }
 
-/* Keep previous .neon etc. */
 .neon { text-shadow: 0 0 14px rgba(120,200,255,0.5), 0 0 36px rgba(120,200,255,0.25); }
 
-/* ===== Exchange: full-width layout & roomy grid ===== */
 
 /* Widen the store sheet/dialog */
 .store, .store-root, .store-sheet, .store-modal, .store-container {
-  /* whichever your container is, this catches it */
   max-width: 1400px !important;
   width: min(96vw, 1400px) !important;
 }
@@ -250,7 +246,6 @@ button.primary {
   }
 }
 
-/* The Exchange tab wrapper (we’ll add this class from JS) */
 .exchange-wide {
   width: 100%;
   padding: 16px 8px 28px;
@@ -324,4 +319,113 @@ button.primary {
 .store-content, .store-right, .store-main {
   max-width: none !important;
   width: 100% !important;
+}
+
+/* ===== Header action buttons (Reset / Buy Pane) ===== */
+#resetBtn,
+#buyPaneBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;                 /* future-proof if you add icons/spans later */
+  padding: 8px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));
+  box-shadow: 0 6px 22px rgba(0,0,0,0.35), inset 0 0 14px rgba(255,255,255,0.05);
+  font-weight: 800;
+  letter-spacing: .2px;
+  font-variant-numeric: tabular-nums; /* keeps big prices from jittering */
+  transition: transform .12s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease;
+}
+
+/* Differentiation: primary vs. tertiary */
+#buyPaneBtn {
+  border-color: rgba(120,200,255,0.45);
+  background:
+    radial-gradient(140% 120% at 20% -30%, rgba(120,200,255,0.18), transparent 60%),
+    linear-gradient(180deg, rgba(120,200,255,0.22), rgba(120,200,255,0.10));
+  box-shadow:
+    0 12px 34px rgba(120,200,255,0.22),
+    inset 0 0 16px rgba(255,255,255,0.07);
+}
+
+/* “Reset” stays subtle, with a cooler tone */
+#resetBtn {
+  border-color: rgba(255,255,255,0.14);
+  background:
+    radial-gradient(140% 120% at 20% -30%, rgba(120,200,255,0.10), transparent 60%),
+    linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+  color: #d6e9ff;
+}
+
+/* Shared interactions */
+#resetBtn:hover,
+#buyPaneBtn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(160,220,255,0.55);
+  box-shadow: 0 18px 46px rgba(120,200,255,0.28), inset 0 0 18px rgba(255,255,255,0.09);
+}
+#resetBtn:active,
+#buyPaneBtn:active {
+  transform: translateY(0);
+  box-shadow: 0 6px 22px rgba(120,200,255,0.18), inset 0 0 12px rgba(255,255,255,0.08);
+}
+
+/* Tighten emoji alignment in the buy button line without HTML changes */
+#buyPaneBtn { text-shadow: 0 1px 0 rgba(0,0,0,0.25); word-spacing: 2px; }
+
+/* ===== Store FAB polish (bottom-right) ===== */
+.bbx-fab {
+  border-radius: 16px !important;
+  padding: 12px 16px !important;
+  gap: 10px !important;
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(120,200,255,0.22), transparent 60%),
+    linear-gradient(180deg, rgba(59,130,246,0.28), rgba(37,99,235,0.24)) !important;
+  border: 1px solid rgba(160,220,255,0.35) !important;
+  backdrop-filter: blur(8px) !important;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.5), inset 0 0 14px rgba(255,255,255,0.06) !important;
+  font-weight: 800 !important;
+  letter-spacing: .2px !important;
+}
+.bbx-fab:hover {
+  transform: translateY(-2px) !important;
+  border-color: rgba(180,240,255,0.65) !important;
+  box-shadow: 0 22px 60px rgba(0,0,0,0.55), 0 0 24px rgba(120,200,255,0.35) !important;
+}
+.bbx-fab:active { transform: translateY(0) scale(0.99) !important; }
+
+#bbx-close {
+  border-radius: 12px !important;
+  border: 1px solid rgba(255,255,255,0.16) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03)) !important;
+  font-weight: 700 !important;
+}
+#bbx-close:hover { border-color: rgba(160,220,255,0.45) !important; }
+
+/* ===== Responsive tweaks ===== */
+@media (max-width: 720px) {
+  #resetBtn, #buyPaneBtn { padding: 8px 12px; border-radius: 12px; }
+  .bbx-fab { right: 12px !important; bottom: 12px !important; padding: 10px 12px !important; }
+}
+
+/* Store FAB with stacked emoji */
+#bbx-store-fab {
+  flex-direction: column;       /* stack vertically */
+  align-items: center;
+  justify-content: center;
+  width: 90px; height: 90px;    /* bigger touch target */
+  border-radius: 20px;
+  font-weight: 800;
+  gap: 4px;
+}
+
+#bbx-store-fab .fab-emoji {
+  font-size: 34px;              /* bigger emoji */
+  line-height: 1;
+}
+
+#bbx-store-fab .fab-label {
+  font-size: 15px;
+  letter-spacing: .3px;
 }

@@ -2,10 +2,9 @@
   const BBX_EXT = { renderers: {} };
   function registerExternalTab({ id, name, desc, render, insertAt = 0 }) {
     const tab = { id, name, desc, items: [], _external: true };
-    Catalog.categories.splice(insertAt, 0, tab);       // add to catalog order
-    BBX_EXT.renderers[id] = render;                    // remember renderer
+    Catalog.categories.splice(insertAt, 0, tab);
+    BBX_EXT.renderers[id] = render;
 
-    // If tabs UI already exists, add a button now
     const tabsEl = document.querySelector('#bbx-tabs');
     if (tabsEl) {
       const b = document.createElement('button');
@@ -129,9 +128,13 @@
           { id:'ball_void', name:'Void', price: C(900,0), preview:{kind:'ball', color:'#0b0b0f'}, glow:true },
           { id:'ball_lava', name:'Lava Core', price: C(0,8), preview:{kind:'ball', color:'#ff5400'}, flame:true },
           { id:'ball_neo', name:'Neon Pulse', price: C(1200,0), preview:{kind:'ball', color:'#39ff14'}, glow:true },
-          // NEW BALLS
           { id:'ball_galaxy', name:'Galaxy Swirl', price: C(1500,3), preview:{kind:'ball', color:'#7b2ff7'}, glow:true },
           { id:'ball_gold', name:'Golden Glory', price: C(2500,0), preview:{kind:'ball', color:'#ffd700'}, glow:true },
+          { id:'ball_plasma', name:'Plasma Surge', price: C(1800,4), preview:{kind:'ball', color:'#00f5ff'}, glow:true },
+          { id:'ball_shadow', name:'Shadow Orb', price: C(1400,2), preview:{kind:'ball', color:'#222'}, glow:true },
+          { id:'ball_ruby', name:'Ruby Core', price: C(2000,5), preview:{kind:'ball', color:'#ff1744'}, glow:true },
+          { id:'ball_emerald', name:'Emerald Gleam', price: C(1600,3), preview:{kind:'ball', color:'#00e676'}, glow:true },
+          { id:'ball_solar', name:'Solar Flare', price: C(2200,6), preview:{kind:'ball', color:'#ff9100'}, glow:true }
         ]
       },
       {
@@ -141,11 +144,16 @@
         items: [
           { id:'bg_arena_blue', name:'Arena Blue', price: C(0,0), preview:{kind:'bg', gradient:['#0ea5e9','#1e3a8a']} },
           { id:'bg_sunset', name:'Sunset Drift', price: C(1000,0), preview:{kind:'bg', gradient:['#ff7e5f','#feb47b']} },
-          { id:'bg_cyber', name:'Cyber Grid', price: C(0,10), preview:{kind:'bg', gradient:['#0f0c29','#302b63','#24243e']} },
-          { id:'bg_mint', name:'Mint Frost', price: C(700,0), preview:{kind:'bg', gradient:['#d9f99d','#10b981']} },
-          // NEW BACKGROUNDS
+          { id:'bg_cyber', name:'Cyber Grid', price: C(0,20), preview:{kind:'bg', gradient:['#0f0c29','#302b63','#24243e']} },
+          { id:'bg_mint', name:'Mint Frost', price: C(1000,0), preview:{kind:'bg', gradient:['#d9f99d','#10b981']} },
           { id:'bg_starry', name:'Starry Night', price: C(0,12), preview:{kind:'bg', gradient:['#0f2027','#203a43','#2c5364']} },
-          { id:'bg_volcano', name:'Volcano Ash', price: C(1600,0), preview:{kind:'bg', gradient:['#2b0f0f','#ff4500']} },
+          { id:'bg_volcano', name:'Volcano Ash', price: C(1600,3), preview:{kind:'bg', gradient:['#2b0f0f','#ff4500']} },
+          { id:'bg_ocean', name:'Ocean Depths', price: C(12000,0), preview:{kind:'bg', gradient:['#1a2980','#26d0ce']} },
+          { id:'bg_forest', name:'Enchanted Forest', price: C(10000,2), preview:{kind:'bg', gradient:['#134e5e','#71b280']} },
+          { id:'bg_nebula', name:'Nebula Glow', price: C(0,15), preview:{kind:'bg', gradient:['#42275a','#734b6d']} },
+          { id:'bg_aurora', name:'Aurora Lights', price: C(18000,4), preview:{kind:'bg', gradient:['#00c6ff','#0072ff']} },
+          { id:'bg_desert', name:'Desert Dusk', price: C(14000,0), preview:{kind:'bg', gradient:['#f7971e','#ffd200']} },
+          { id:'bg_celestial', name:'Celestial Realm', price: C(1000000,50), preview:{kind:'bg', gradient:['#000428','#004e92','#00c6ff','#7b2ff7']} }
         ]
       }
     ];
@@ -260,6 +268,25 @@
   function iconEquip(){ return `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.285 2.859 8.57 14.572l-4.856-4.857L1.999 11.43l6.57 6.57L22.713 3.855l-2.428-.996Z"/></svg>`; }
 
   // ---------- Renderers ----------
+  function addAlpha(hex, a = 0.33) {
+    const m3 = /^#([0-9a-f]{3})$/i.exec(hex);
+    const m6 = /^#([0-9a-f]{6})$/i.exec(hex);
+    let r,g,b;
+    if (m3) {
+      r = parseInt(m3[1][0] + m3[1][0], 16);
+      g = parseInt(m3[1][1] + m3[1][1], 16);
+      b = parseInt(m3[1][2] + m3[1][2], 16);
+    } else if (m6) {
+      r = parseInt(m6[1].slice(0,2), 16);
+      g = parseInt(m6[1].slice(2,4), 16);
+      b = parseInt(m6[1].slice(4,6), 16);
+    } else {
+      // fallback: if it's already a valid CSS color, just return it
+      return hex;
+    }
+    return `rgba(${r},${g},${b},${Math.max(0, Math.min(1, a))})`;
+  }
+
   function ballPreview(el, color, opts={}){
     const c = document.createElement('canvas'); c.className = 'bbx-ball'; el.appendChild(c);
     const ctx = c.getContext('2d');
@@ -275,10 +302,11 @@
       if (opts.glow){
         ctx.save();
         const grad = ctx.createRadialGradient(cx,cy,r*0.2,cx,cy,r*1.6);
-        grad.addColorStop(0, color+'55');
+        grad.addColorStop(0, addAlpha(color, 0.33)); // ← safe alpha color
         grad.addColorStop(1, 'transparent');
         ctx.fillStyle = grad;
-        ctx.beginPath(); ctx.arc(cx,cy,r*1.3,0,Math.PI*2); ctx.fill(); ctx.restore();
+        ctx.beginPath(); ctx.arc(cx,cy,r*1.3,0,Math.PI*2); ctx.fill();
+        ctx.restore();
       }
       ctx.fillStyle = color;
       ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
@@ -445,8 +473,7 @@
 
     q('#bbx-close', overlay).addEventListener('click', toggle);
 
-    // Floating button (can be hidden via CSS if you add your own button)
-    const fab = document.createElement('button'); fab.className='bbx-fab'; fab.id='bbx-store-fab'; fab.innerHTML = `${iconStore()} <span>Store</span>`;
+    const fab = document.createElement('button'); fab.className='bbx-fab'; fab.id='bbx-store-fab'; fab.innerHTML = `<div class="fab-emoji">🏠</div><div class="fab-label">Store</div>`;
     fab.addEventListener('click', open);
     document.body.appendChild(fab);
 

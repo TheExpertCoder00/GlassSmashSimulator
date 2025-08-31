@@ -1,6 +1,3 @@
-// Minimal utilities for making + simulating triangular "glass shards".
-// Exposes a tiny API on window.Shatter.
-
 (function(){
   const TAU = Math.PI * 2;
   const rand = (a, b) => a + Math.random() * (b - a);

@@ -127,15 +127,31 @@
     bg_arena_blue: ['#0ea5e9', '#1e3a8a'],
     bg_sunset: ['#ff7e5f', '#feb47b'],
     bg_cyber: ['#0f0c29', '#302b63', '#24243e'],
-    bg_mint: ['#d9f99d', '#10b981']
-  }
+    bg_mint: ['#d9f99d', '#10b981'],
+    bg_starry: ['#0f2027','#203a43','#2c5364'],
+    bg_volcano: ['#2b0f0f','#ff4500'],
+    bg_ocean: ['#1a2980','#26d0ce'],
+    bg_forest: ['#134e5e','#71b280'],
+    bg_nebula: ['#42275a','#734b6d'],
+    bg_aurora: ['#00c6ff','#0072ff'],
+    bg_desert: ['#f7971e','#ffd200'],
+    bg_celestial: ['#000428','#004e92','#00c6ff','#7b2ff7']
+  };
+
   const ballColors = {
     ball_basic: '#f48c06',
     ball_ice: '#a8dadc',
     ball_void: '#111217',
     ball_lava: '#ff5400',
-    ball_neo: '#39ff14'
-  }
+    ball_neo: '#39ff14',
+    ball_galaxy: '#7b2ff7',
+    ball_gold: '#ffd700',
+    ball_plasma: '#00f5ff',
+    ball_shadow: '#222222',
+    ball_ruby: '#ff1744',
+    ball_emerald: '#00e676',
+    ball_solar: '#ff9100'
+  };
 
   function getEquippedInitial(){
     try{
@@ -167,8 +183,6 @@
     [hc, hg].forEach(el=>{
       if (!el) return;
       el.classList.remove('hud-pulse');
-      // Force reflow to restart animation
-      // eslint-disable-next-line no-unused-expressions
       el.offsetWidth;
       el.classList.add('hud-pulse');
     });
@@ -179,7 +193,6 @@
     el.className = 'reward-blip';
     el.textContent = text;
 
-    // strong, opaque pill style
     el.style.position = 'fixed';
     el.style.left = x + 'px';
     el.style.top = y + 'px';
@@ -253,7 +266,7 @@
     }
     updateCrystalZoneVisual();
   }
-  
+
   function consumeOneUseAllConsumables(){
     const active = readActivePowerups();
     let changed = false;

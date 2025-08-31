@@ -79,9 +79,8 @@
         // map combo -> boosts
         // combo 1,2,3,4,5+  => mult 1.00,1.15,1.28,1.38,1.45
         const comboIdx = this._combo.count;
-        const comboMult = Math.min(1.45, 1 + 0.15 * (comboIdx - 1) ** 0.85);
+        const comboMult = Math.min(3, 1 + 0.15 * (comboIdx - 1) ** 0.85);
 
-        // final psychoacoustic intensity with clamp
         const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
         const I = clamp(intensity * comboMult, 0.25, 1.5);
 
