@@ -58,7 +58,17 @@
   function setMaxUnlocked(n){ localStorage.setItem(LS_KEY, String(Math.max(1,n))) }
   let maxUnlocked = getMaxUnlocked()
 
-  function paneRectAt(i){ const dx = 26*i; return { x: basePane.x+dx, y: basePane.y, w: basePane.w, h: basePane.h } }
+  const MAX_DRAW_STACK = 4;
+  function paneRectAt(i){
+    const layer = Math.min(i, MAX_DRAW_STACK - 1); // cap visual layers
+    const step = 10;                                // px diagonal offset per layer
+    return {
+      x: basePane.x + layer * step,
+      y: basePane.y - layer * step,
+      w: basePane.w,
+      h: basePane.h
+    };
+  }
   function rebuildPaneRects(){ for(let i=0;i<panes.length;i++) panes[i].rect = paneRectAt(i) }
 
   function resize(){
@@ -458,6 +468,27 @@
     ctx.globalAlpha = 1
   }
 
+  function drawPaneBadge(rect, extra){
+    const r = 12
+    const pad = 10
+    const x = rect.x + rect.w - pad - 32
+    const y = rect.y + pad
+    ctx.save()
+    ctx.globalAlpha = 0.9
+    ctx.fillStyle = 'rgba(15,24,40,0.75)'
+    ctx.strokeStyle = 'rgba(200,240,255,0.6)'
+    ctx.lineWidth = 1.5
+    roundRect(ctx, x, y, 32, 22, r*0.5)
+    ctx.fill()
+    ctx.stroke()
+    ctx.fillStyle = 'rgba(200,240,255,0.95)'
+    ctx.font = '12px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('+'+extra, x+16, y+11)
+    ctx.restore()
+  }
+
   function drawPaneRect(rect){
     const lg = ctx.createLinearGradient(rect.x, rect.y, rect.x+rect.w, rect.y+rect.h)
     lg.addColorStop(0, "rgba(170,230,255,0.10)")
@@ -535,13 +566,31 @@
     ctx.translate(ox, oy)
 
     drawBackground()
-    for (let i=panes.length-1;i>=0;i--) if(!panes[i].broken) drawPaneRect(panes[i].rect)
+
+    // --- Draw at most 4 unbroken panes as a neat stack
+    const visible = panes.filter(p => !p.broken)
+    const toShow = visible.slice(0, 4)  // topmost first in your logic
+    for (let i = toShow.length - 1; i >= 0; i--) { // back -> front
+      const p = toShow[i]
+      ctx.save()
+      // fade the ghosts
+      const alpha = i === 0 ? 1.0 : (0.55 - (i-1)*0.12)
+      ctx.globalAlpha = Math.max(0.18, alpha)
+      drawPaneRect(p.rect)
+      ctx.restore()
+    }
+
+    // If more remain, show a compact “+N” badge at the corner
+    const extra = Math.max(0, visible.length - 4)
+    if (extra > 0) drawPaneBadge(toShow[0]?.rect || basePane, extra)
+
     for (const s of shards) window.Shatter.drawShard(ctx, s)
     drawSparks()
     drawBall()
 
     ctx.restore()
   }
+
 
   function loop(){
     const now = performance.now()
