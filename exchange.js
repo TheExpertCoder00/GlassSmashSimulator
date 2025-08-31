@@ -1,7 +1,6 @@
-// exchange.js — Coins ↔ Crystals Exchange (registers a Store tab)
 (function () {
   const BUY = 2500;  // coins → 1 crystal
-  const SELL = 2000; // 1 crystal → coins
+  const SELL = 2500; // 1 crystal → coins
 
   const fmt = new Intl.NumberFormat();
 
@@ -11,7 +10,7 @@
     const wrap = document.createElement('div');
     wrap.style.display = 'grid';
     wrap.style.gap = '12px';
-    wrap.style.maxWidth = '560px';
+    wrap.classList.add('exchange-wide');
 
     const tabs = document.createElement('div');
     tabs.style.display = 'flex';
@@ -23,9 +22,9 @@
 
     const row = document.createElement('div');
     row.style.display = 'grid';
-    row.style.gridTemplateColumns = '1fr auto 1fr';
+    row.style.gridTemplateColumns = 'minmax(340px,1fr) 64px minmax(340px,1fr)';
     row.style.alignItems = 'center';
-    row.style.gap = '12px';
+    row.style.gap = '24px 40px';
 
     const box = () => {
       const d = document.createElement('div');
@@ -38,7 +37,7 @@
       return d;
     };
 
-    const left  = box();
+    const left  = box();  left.classList.add('exchange-card');
     const lLab  = document.createElement('div'); lLab.style.opacity='.85'; lLab.style.fontSize='12px';
     const input = document.createElement('input'); 
     input.type='number'; input.min='0'; input.step='1'; input.value='0';
@@ -52,26 +51,26 @@
     const mid = document.createElement('div'); mid.textContent = '→';
     mid.style.fontWeight='800'; mid.style.opacity='.85'; mid.style.textAlign='center';
 
-    const right = box();
+    const right = box(); right.classList.add('exchange-card');
     const rLab  = document.createElement('div'); rLab.style.opacity='.85'; rLab.style.fontSize='12px';
-    const out   = document.createElement('div'); out.style.fontSize='20px'; out.style.fontWeight='800'; out.textContent = '0';
+    const out   = document.createElement('div'); out.style.fontSize='20px'; out.classList.add('value'); out.textContent = '0';
     right.append(rLab, out);
 
     row.append(left, mid, right);
 
     const chips = document.createElement('div');
-    chips.style.display='grid'; chips.style.gridTemplateColumns='repeat(4,minmax(0,1fr))'; chips.style.gap='8px';
+    chips.style.display='grid'; chips.style.gridTemplateColumns='repeat(4, minmax(90px, 1fr))'; chips.style.gap='8px'; chips.classList.add('exchange-amounts');
     ;[1,5,10,25,50,100,250,1000].forEach(v=>{
       const b = document.createElement('button'); b.className='bbx-btn'; b.textContent = '+'+v;
       b.addEventListener('click', ()=>{ input.value = String(Math.max(0, (parseInt(input.value||'0',10)||0)+v)); update(); });
       chips.appendChild(b);
     });
 
-    const rate = document.createElement('div'); rate.style.opacity='.85'; rate.style.fontSize='12px';
+    const rate = document.createElement('div'); rate.style.opacity='.85'; rate.style.fontSize='12px'; rate.classList.add('exchange-meta');
     const help = document.createElement('div'); help.style.opacity='.85'; help.style.fontSize='12px';
 
     const actions = document.createElement('div'); 
-    actions.style.display='flex'; actions.style.gap='10px'; actions.style.alignItems='center'; actions.style.justifyContent='space-between';
+    actions.style.display='flex'; actions.style.gap='10px'; actions.style.alignItems='center'; actions.style.justifyContent='space-between'; actions.classList.add('exchange-actions-row');
     const confirm = document.createElement('button'); confirm.className='bbx-btn primary'; confirm.textContent='Confirm Exchange';
     actions.append(help, confirm);
 
