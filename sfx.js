@@ -61,96 +61,145 @@
       window.addEventListener("keydown", tryResume, { once: true });
     }
 
-    shatter({ intensity = 1, duration = 0.95 } = {}) {
-      const ctx = this._ctx();
-      const now = ctx.currentTime + 0.005;
-      const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-      intensity = clamp(intensity, 0.2, 1.5);
+    shatter({ intensity = 1, duration = 0.9 } = {}) {
+        const ctx = this._ctx();
+        const now = ctx.currentTime + 0.005;
+        const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+        intensity = clamp(intensity, 0.2, 1.5);
 
-      const rootGain = ctx.createGain();
-      rootGain.gain.value = 0.85 * intensity;
-      rootGain.connect(this.bus);
+        // --- Root bus for this event
+        const rootGain = ctx.createGain();
+        rootGain.gain.value = 0.8 * intensity; // slightly lower overall
+        rootGain.connect(this.bus);
 
-      const impact = ctx.createGain();
-      impact.gain.value = 1.0;
-      impact.connect(rootGain);
+        // --- Impact bus (shared by components)
+        const impact = ctx.createGain();
+        impact.gain.value = 1.0;
+        impact.connect(rootGain);
 
-      const len = Math.floor(ctx.sampleRate * duration);
-      const buf = ctx.createBuffer(1, len, ctx.sampleRate);
-      const ch = buf.getChannelData(0);
-      for (let i = 0; i < len; i++) {
-        const t = i / len;
-        const dec = Math.pow(1 - t, 1.6);
-        ch[i] = (Math.random() * 2 - 1) * dec;
-      }
-      const src = ctx.createBufferSource();
-      src.buffer = buf;
+        // --- Noise burst (body of the shatter) ---
+        const len = Math.floor(ctx.sampleRate * duration);
+        const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+        const ch = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) {
+            const t = i / len;
+            // Slight tilt to avoid buzzy highs; softer tail
+            const dec = Math.pow(1 - t, 1.8);
+            ch[i] = (Math.random() * 2 - 1) * dec * (1 - t * 0.15);
+        }
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
 
-      const hp = ctx.createBiquadFilter();
-      hp.type = "highpass";
-      hp.frequency.value = 1600 + 600 * intensity;
+        // Keep some low-mid body, not too thin
+        const hp = ctx.createBiquadFilter();
+        hp.type = "highpass";
+        hp.frequency.value = 900 + 400 * intensity;
 
-      const tilt = ctx.createBiquadFilter();
-      tilt.type = "peaking";
-      tilt.frequency.value = 3200;
-      tilt.Q.value = 0.7;
-      tilt.gain.value = 5 + 4 * intensity;
+        // Gentle presence (adds 'thunk' without shrillness)
+        const presence = ctx.createBiquadFilter();
+        presence.type = "peaking";
+        presence.frequency.value = 1800;
+        presence.Q.value = 0.8;
+        presence.gain.value = 2.5; // small boost vs old +5 @ 3.2k
 
-      src.connect(hp).connect(tilt).connect(impact);
+        // De-ess / harshness taming
+        const deEss = ctx.createBiquadFilter();
+        deEss.type = "peaking";
+        deEss.frequency.value = 3200;
+        deEss.Q.value = 1.0;
+        deEss.gain.value = -7; // tame the ear-piercing band
 
-      const freqs = [1700, 2200, 2800, 3500, 4300];
-      freqs.forEach((f, i) => {
-        const bp = ctx.createBiquadFilter();
-        bp.type = "bandpass";
-        bp.frequency.value = f * (1 + (Math.random() - 0.5) * 0.06);
-        bp.Q.value = 8 + i * 2;
+        // Smooth top end
+        const shelf = ctx.createBiquadFilter();
+        shelf.type = "highshelf";
+        shelf.frequency.value = 6000;
+        shelf.gain.value = -4;
 
-        const g = ctx.createGain();
-        g.gain.setValueAtTime(0.5 + 0.15 * i, now);
-        g.gain.exponentialRampToValueAtTime(0.001, now + 0.45 + 0.1 * i);
+        // Overall low-pass to keep it sweet
+        const lp = ctx.createBiquadFilter();
+        lp.type = "lowpass";
+        lp.frequency.value = 7000 - 1500 * (1 - Math.min(intensity, 1));
+        lp.Q.value = 0.7;
 
-        tilt.connect(bp).connect(g).connect(impact);
-      });
+        // Optional soft-sat to round transients (pre-impact)
+        const shaper = ctx.createWaveShaper();
+        const curve = new Float32Array(256);
+        for (let i = 0; i < 256; i++) {
+            const x = (i / 128) - 1;
+            curve[i] = Math.tanh(1.5 * x); // gentle
+        }
+        shaper.curve = curve;
+        shaper.oversample = "2x";
 
-      const sparkleBus = ctx.createGain();
-      sparkleBus.gain.value = 0.7 * intensity;
-      sparkleBus.connect(rootGain);
+        src.connect(hp)
+            .connect(presence)
+            .connect(deEss)
+            .connect(shelf)
+            .connect(lp)
+            .connect(shaper)
+            .connect(impact);
 
-      const pannerL = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
-      const pannerR = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
-      if (pannerL && pannerR) {
-        pannerL.pan.value = -0.35;
-        pannerR.pan.value = 0.35;
-        sparkleBus.connect(pannerL).connect(rootGain);
-        sparkleBus.connect(pannerR).connect(rootGain);
-      }
+        // --- Sparkles / tinkles (much softer, lower band & triangle waves) ---
+        const sparkleBus = ctx.createGain();
+        sparkleBus.gain.value = 0.35 * intensity; // was 0.7 → less bright
+        sparkleBus.connect(rootGain);
 
-      const sparkCount = 10 + Math.floor(12 * intensity);
-      for (let i = 0; i < sparkCount; i++) {
-        const t0 = now + 0.015 * i;
-        const osc = ctx.createOscillator();
-        const g = ctx.createGain();
-        const f0 = 2200 + Math.random() * 3200;
-        const det = (Math.random() - 0.5) * 60;
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(f0 + det, t0);
+        const panL = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+        const panR = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+        if (panL && panR) {
+            panL.pan.value = -0.3;
+            panR.pan.value = 0.3;
+            sparkleBus.connect(panL).connect(rootGain);
+            sparkleBus.connect(panR).connect(rootGain);
+        }
 
-        g.gain.setValueAtTime(0.0, t0);
-        g.gain.linearRampToValueAtTime(0.12 + Math.random() * 0.06, t0 + 0.01);
-        g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.18 + Math.random() * 0.1);
+        const sparkCount = 7 + Math.floor(8 * intensity); // fewer sparks
+        for (let i = 0; i < sparkCount; i++) {
+            const t0 = now + 0.012 * i;
+            const osc = ctx.createOscillator();
+            const g = ctx.createGain();
 
-        const bp = ctx.createBiquadFilter();
-        bp.type = "bandpass";
-        bp.frequency.value = f0;
-        bp.Q.value = 6;
+            // Lower range keeps it sweet (1.2–2.6 kHz)
+            const f0 = 1200 + Math.random() * 1400;
+            const det = (Math.random() - 0.5) * 30;
+            osc.type = "triangle"; // softer than sine here due to filter
+            osc.frequency.setValueAtTime(f0 + det, t0);
+            osc.frequency.exponentialRampToValueAtTime(f0 * 0.8, t0 + 0.12);
 
-        osc.connect(bp).connect(g).connect(sparkleBus);
-        osc.start(t0);
-        osc.stop(t0 + 0.25);
-      }
+            // Envelope: quick in, quick out, very low level
+            g.gain.setValueAtTime(0.0, t0);
+            g.gain.linearRampToValueAtTime(0.06 + Math.random() * 0.03, t0 + 0.012);
+            g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.16 + Math.random() * 0.05);
 
-      src.start(now);
-      src.stop(now + duration);
+            const bp = ctx.createBiquadFilter();
+            bp.type = "bandpass";
+            bp.frequency.value = f0;
+            bp.Q.value = 5;
+
+            osc.connect(bp).connect(g).connect(sparkleBus);
+            osc.start(t0);
+            osc.stop(t0 + 0.22);
+        }
+
+        // --- Subtle glass bands (calmer, wider Q, lower gains) ---
+        const freqs = [1400, 1900, 2400, 3000];
+        freqs.forEach((f, i) => {
+            const bp = ctx.createBiquadFilter();
+            bp.type = "bandpass";
+            bp.frequency.value = f * (1 + (Math.random() - 0.5) * 0.04);
+            bp.Q.value = 4.5 + i * 0.8;
+
+            const g = ctx.createGain();
+            // much gentler & faster decay than before
+            g.gain.setValueAtTime(0.25 + 0.1 * i, now);
+            g.gain.exponentialRampToValueAtTime(0.001, now + 0.28 + 0.06 * i);
+
+            lp.connect(bp).connect(g).connect(impact);
+        });
+
+        // Fire!
+        src.start(now);
+        src.stop(now + duration);
     }
 
     testSound() {
