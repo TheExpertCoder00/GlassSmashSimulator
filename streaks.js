@@ -1,9 +1,9 @@
 (function(){
   // ====== CONFIG ======
   const NEED_FOR_BONUS      = 5;     // perfects needed for a payout
-  const BASE_COINS          = 100;   // coins per payout (before multipliers)
-  const BASE_CRYSTALS       = 3;     // crystals per payout (before multipliers)
-  const RESET_AFTER_PAYOUT  = true;  // reset streak immediately after paying
+  const BASE_COINS          = 1750;   // coins per payout (before multipliers)
+  const BASE_CRYSTALS       = 10;     // crystals per payout (before multipliers)
+  const RESET_AFTER_PAYOUT  = false;  // reset streak immediately after paying
 
   // ---- badge layout (right side under power bar) ----
   const BADGE_Y_GAP = 28;            // space under the green/red power bar
@@ -140,21 +140,29 @@
     b.style.top = Math.round(top) + 'px';
     b.style.right = BADGE_X + 'px';
   }
+  
   function updateBadge(){
     const b = ensureBadge();
     const s = get();
-    const left = (NEED_FOR_BONUS - (s % NEED_FOR_BONUS)) % NEED_FOR_BONUS;
-    const coinsNext    = Math.floor(BASE_COINS    * (1 + coinMultiplier()));
-    const crystalsNext = Math.max(1, Math.floor(BASE_CRYSTALS * (1 + gemMultiplier())));
+
+    // per-tier progress (0..NEED_FOR_BONUS-1); avoid "6/5"
+    const within = s % NEED_FOR_BONUS;                 // 6 -> 1, 7 -> 2, ... 10 -> 0
+    const left   = (within === 0 ? NEED_FOR_BONUS : NEED_FOR_BONUS - within);
+
+    // Next payout preview — scales with tier when progressive; flat when resetting
+    const nextTier = RESET_AFTER_PAYOUT ? 1 : (Math.floor(s / NEED_FOR_BONUS) + 1);
+    const coinsNext    = Math.floor(BASE_COINS    * nextTier * (1 + coinMultiplier()));
+    const crystalsNext = Math.max(1, Math.floor(BASE_CRYSTALS * nextTier * (1 + gemMultiplier())));
+
     b.innerHTML = `
-      <span style="opacity:.95">Streak: <span style="font-weight:800">${s}</span> / ${NEED_FOR_BONUS}</span>
-      <span style="opacity:.65">🧿</span>
-      <span style="opacity:.95">
+        <span style="opacity:.95">Streak: <span style="font-weight:800">${within}</span> / ${NEED_FOR_BONUS}</span>
+        <span style="opacity:.65">🧿</span>
+        <span style="opacity:.95">
         Next bonus:
         <span style="font-weight:800">+${fmt.format(coinsNext)} Coins</span>,
         <span style="font-weight:800">+${fmt.format(crystalsNext)} Crystals</span>
-        ${left ? `<span style="opacity:.7;margin-left:6px;">(${left} to go)</span>` : ''}
-      </span>
+        <span style="opacity:.7;margin-left:6px;">(${left} to go)</span>
+        </span>
     `;
     positionBadge();
   }
@@ -193,17 +201,24 @@
     setTimeout(()=> t.remove(), 2700);
   }
 
-  // ====== PAYOUT ======
   function awardAndMaybeReset(s){
-    if (s < NEED_FOR_BONUS) return;
-    const coins    = Math.floor(BASE_COINS    * (1 + coinMultiplier()));
-    const crystals = Math.max(1, Math.floor(BASE_CRYSTALS * (1 + gemMultiplier())));
+    // milestone logic: if resetting, pay when s >= NEED_FOR_BONUS; if progressive, only on multiples of NEED_FOR_BONUS
+    const isMilestone = RESET_AFTER_PAYOUT ? (s >= NEED_FOR_BONUS) : (s % NEED_FOR_BONUS === 0);
+    if (!isMilestone) return;
+
+    const tier = RESET_AFTER_PAYOUT ? 1 : Math.max(1, Math.floor(s / NEED_FOR_BONUS));
+    const coins    = Math.floor(BASE_COINS    * tier * (1 + coinMultiplier()));
+    const crystals = Math.max(1, Math.floor(BASE_CRYSTALS * tier * (1 + gemMultiplier())));
+
     addCoins(coins);
     addCrystals(crystals);
+
     window.Store?.refreshWallet?.();
     window.dispatchEvent(new Event('bbx:walletPing'));
-    toast(`🔥 ${NEED_FOR_BONUS}-streak! +${fmt.format(coins)} Coins, +${fmt.format(crystals)} Crystals`);
-    if (RESET_AFTER_PAYOUT) set(0); // next cycle starts fresh
+
+    toast(`🔥 ${s}-streak! +${fmt.format(coins)} Coins, +${fmt.format(crystals)} Crystals`);
+
+    if (RESET_AFTER_PAYOUT) set(0); // fresh cycle if using reset mode
   }
 
   // ====== PUBLIC API & EVENT HOOKS ======

@@ -253,22 +253,32 @@
     }
     updateCrystalZoneVisual();
   }
+  
   function consumeOneUseAllConsumables(){
-    const active = readActivePowerups()
-    let changed = false
-    for(const id in active){
-      const pu = active[id]
-      if(pu.type==='consumable' && pu.uses!=null && pu.uses>0){
-        pu.uses -= 1
-        changed = true
-        if(pu.uses<=0){
-          delete active[id]
-          window.dispatchEvent(new CustomEvent('bbx:powerupExpired', { detail: { id } }))
+    const active = readActivePowerups();
+    let changed = false;
+
+    for (const id in active){
+      const pu = active[id];
+      if (pu.type === 'consumable' && pu.uses != null && pu.uses > 0){
+        pu.uses -= 1;
+        changed = true;
+
+        // tell HUD immediately
+        window.dispatchEvent(new CustomEvent('bbx:powerupUse', {
+          detail: { id, uses: pu.uses }
+        }));
+
+        // if it just hit 0, remove and broadcast expiry
+        if (pu.uses <= 0){
+          delete active[id];
+          window.dispatchEvent(new CustomEvent('bbx:powerupExpired', { detail: { id } }));
         }
       }
     }
-    if(changed) localStorage.setItem('bbx_powerups', JSON.stringify(active))
+    if (changed) localStorage.setItem('bbx_powerups', JSON.stringify(active));
   }
+
   window.addEventListener('bbx:powerupActivated', () => { recalcBoosts(); updateCrystalZoneVisual(); });
   window.addEventListener('bbx:powerupExpired', () => { recalcBoosts(); updateCrystalZoneVisual(); });
 

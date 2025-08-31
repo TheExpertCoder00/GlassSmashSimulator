@@ -1,8 +1,7 @@
-// Powerups HUD v4 — bottom progress bar + time text, no close button.
 (function(){
   const LS = 'bbx_powerups';
 
-  // Map your existing store IDs -> labels/icons
+  // Map store IDs -> display
   const META = {
     pu_power_window_10: { name:'Perfect Zone +5%', icon:'➿', sub:'10 throws' },
     pu_coin_doubler_5m: { name:'Coin x2',          icon:'💰', sub:'5 min'     },
@@ -27,100 +26,152 @@
     return p;
   }
 
+  function buildTile(id, pu){
+    const meta = META[id] || { name:id, icon:'✨', sub:'' };
+    const tile = document.createElement('div');
+    tile.className = 'pu-tile';
+    tile.dataset.id = id; // <- reliable lookup
+
+    // top content
+    const ico  = document.createElement('div'); ico.className='pu-ico'; ico.textContent = meta.icon;
+    const box  = document.createElement('div'); box.className='pu-meta';
+    const name = document.createElement('div'); name.className='pu-name'; name.textContent = meta.name;
+    const sub  = document.createElement('div'); sub.className='pu-sub';
+    sub.textContent = meta.sub || (pu.uses!=null ? 'Consumable' : '');
+    box.appendChild(name); box.appendChild(sub);
+    tile.appendChild(ico); tile.appendChild(box);
+
+    // bottom progress
+    const bottom = document.createElement('div'); bottom.className='pu-bottom';
+    const bar = document.createElement('div'); bar.className='pu-hbar';
+    const fill = document.createElement('div'); fill.className='pu-hfill';
+    bar.appendChild(fill);
+    const timetxt = document.createElement('div'); timetxt.className='pu-htime';
+
+    if (pu.expiresAt){
+      const left = msLeft(pu.expiresAt);
+      const total = pu.effect?.durationMs || (left||1);
+      fill.style.width = `${Math.max(0, 1 - left/total) * 100}%`;
+      timetxt.textContent = fmt(left);
+    } else if (pu.uses != null){
+      const totalUses = Math.max(1, Number(pu.effect?.uses || 0) || 1);
+      const used = Math.max(0, Math.min(totalUses, totalUses - Number(pu.uses||0)));
+      fill.style.width = `${(used/totalUses) * 100}%`;
+      const badge = document.createElement('div'); badge.className='pu-uses'; badge.textContent = `×${pu.uses}`;
+      tile.appendChild(badge);
+      timetxt.textContent = 'Ready';
+      sub.textContent = `${pu.uses} throws left`;
+    } else {
+      fill.style.width = '0%';
+      timetxt.textContent = '';
+    }
+
+    bottom.appendChild(bar);
+    bottom.appendChild(timetxt);
+    tile.appendChild(bottom);
+    return tile;
+  }
+
   function render(){
     const panel = ensurePanel();
     const active = read();
 
-    // Hide consumables with 0 uses immediately
-    const ids = Object.keys(active).filter(id => !(active[id]?.uses === 0));
+    const ids = Object.keys(active).filter(id => {
+      const pu = active[id];
+      if (!pu) return false;
+      if (pu.expiresAt && msLeft(pu.expiresAt) <= 0) return false;
+      if (pu.uses != null && Number(pu.uses) <= 0) return false;
+      return true;
+    });
 
     if (!ids.length){ panel.innerHTML = ''; panel.style.display = 'none'; return; }
     panel.style.display = '';
 
     panel.innerHTML = '';
-    ids.forEach(id=>{
-      const pu = active[id];
-      const meta = META[id] || { name:id, icon:'✨', sub:'' };
+    ids.forEach(id => panel.appendChild(buildTile(id, active[id])));
+  }
 
-      const tile = document.createElement('div'); tile.className='pu-tile';
+  // ----- Live DOM updates (no stale storage reads) -----
+  function onUse(ev){
+    // We dispatch bbx:powerupUse with { id, uses } from main.js
+    const { id, uses } = ev.detail || {};
+    const panel = ensurePanel();
+    const tile = panel.querySelector(`.pu-tile[data-id="${id}"]`);
 
-      // top content
-      const ico  = document.createElement('div'); ico.className='pu-ico'; ico.textContent = meta.icon;
-      const box  = document.createElement('div'); box.className='pu-meta';
-      const name = document.createElement('div'); name.className='pu-name'; name.textContent = meta.name;
-      const sub  = document.createElement('div'); sub.className='pu-sub';
-      sub.textContent = meta.sub || (pu.uses!=null ? 'Consumable' : '');
-      box.appendChild(name); box.appendChild(sub);
-      tile.appendChild(ico); tile.appendChild(box);
+    // If we didn’t find a tile (race), fall back to full render.
+    if (!tile){ render(); return; }
 
-      // bottom progress
-      const bottom = document.createElement('div'); bottom.className='pu-bottom';
-      const bar = document.createElement('div'); bar.className='pu-hbar';
-      const fill = document.createElement('div'); fill.className='pu-hfill';
-      bar.appendChild(fill);
-      const timetxt = document.createElement('div'); timetxt.className='pu-htime';
+    // If now zero or below: remove instantly.
+    if (uses == null || uses <= 0){
+      tile.remove();
+      // hide panel if nothing left
+      if (!panel.children.length) panel.style.display = 'none';
+      return;
+    }
 
-      if (pu.expiresAt){
-        const left = msLeft(pu.expiresAt);
-        const total = pu.effect?.durationMs || (left||1);
-        fill.style.width = `${Math.max(0, 1 - left/total) * 100}%`;
-        timetxt.textContent = fmt(left);
-      } else if (pu.uses != null){
-        // consumable: show remaining uses, full bar
-        fill.style.width = '100%';
-        const badge = document.createElement('div'); badge.className='pu-uses'; badge.textContent = `×${pu.uses}`;
-        tile.appendChild(badge);
-        timetxt.textContent = 'Ready';
-      } else {
-        fill.style.width = '0%';
-        timetxt.textContent = '';
-      }
+    // Update badge, subtitle and progress bar in place.
+    const badge = tile.querySelector('.pu-uses'); if (badge) badge.textContent = `×${uses}`;
+    const sub = tile.querySelector('.pu-sub'); if (sub) sub.textContent = `${uses} throws left`;
 
-      bottom.appendChild(bar);
-      bottom.appendChild(timetxt);
-      tile.appendChild(bottom);
-
-      panel.appendChild(tile);
-    });
+    const fill = tile.querySelector('.pu-hfill');
+    const active = read(); const pu = active?.[id];
+    // If storage hasn’t written yet, compute using effect uses from META/pu if available
+    const totalUses = Math.max(1, Number(pu?.effect?.uses || 0) || Number(META[id]?.sub?.match(/\d+/)?.[0]) || 1);
+    const used = Math.max(0, Math.min(totalUses, totalUses - uses));
+    if (fill) fill.style.width = `${(used/totalUses) * 100}%`;
   }
 
   // live updates from your game/store
   window.addEventListener('bbx:powerupActivated', render);
   window.addEventListener('bbx:powerupExpired', render);
+  window.addEventListener('bbx:powerupUse', onUse);
 
-  // heartbeat so time/width and disappearance track storage perfectly
+  // Heartbeat: keep timers & counts perfect, and prune stale tiles.
   setInterval(()=>{
     const panel = $('#powerups-panel'); if(!panel) return;
     const active = read();
-    let anyChange = false;
+    let changed = false;
 
-    // remove stale, update timers
+    // remove stale in storage
     for (const id of Object.keys(active)){
       const pu = active[id];
-      if (pu.expiresAt && msLeft(pu.expiresAt) <= 0){
-        delete active[id]; anyChange = true; continue;
-      }
-      if (pu.uses === 0){ delete active[id]; anyChange = true; continue; }
+      if (pu.expiresAt && msLeft(pu.expiresAt) <= 0) { delete active[id]; changed = true; }
+      else if (pu.uses != null && Number(pu.uses) <= 0) { delete active[id]; changed = true; }
     }
-    if (anyChange){ write(active); document.dispatchEvent(new CustomEvent('bbx:powerupExpired')); }
+    if (changed){ write(active); render(); return; }
 
-    // update widths/times in-place
+    // sync each visible tile
     [...panel.children].forEach(tile=>{
-      const name = tile.querySelector('.pu-name')?.textContent;
-      const id = Object.keys(META).find(k => META[k].name === name) || name;
-      const pu = active[id]; if (!pu) return;
+      const id = tile.dataset.id;
+      const pu = active[id];
+
+      // if storage no longer has it, drop instantly
+      if (!pu){ tile.remove(); return; }
 
       const fill = tile.querySelector('.pu-hfill');
       const timetxt = tile.querySelector('.pu-htime');
+      const badge = tile.querySelector('.pu-uses');
+      const sub = tile.querySelector('.pu-sub');
 
       if (pu.expiresAt && fill && timetxt){
         const left = msLeft(pu.expiresAt);
         const total = pu.effect?.durationMs || (left||1);
         fill.style.width = `${Math.max(0, 1 - left/total) * 100}%`;
         timetxt.textContent = fmt(left);
+      } else if (pu.uses != null){
+        if (Number(pu.uses) <= 0){ tile.remove(); return; }
+        const totalUses = Math.max(1, Number(pu.effect?.uses || 0) || 1);
+        const used = Math.max(0, Math.min(totalUses, totalUses - Number(pu.uses)));
+        if (fill) fill.style.width = `${(used/totalUses) * 100}%`;
+        if (badge) badge.textContent = `×${pu.uses}`;
+        if (sub) sub.textContent = `${pu.uses} throws left`;
+        if (timetxt) timetxt.textContent = 'Ready';
       }
     });
-  }, 250);
+
+    // hide panel if empty after pruning
+    if (!panel.children.length) panel.style.display = 'none';
+  }, 200);
 
   // boot
   if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', render); else render();
