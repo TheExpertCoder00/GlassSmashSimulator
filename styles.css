@@ -228,3 +228,100 @@ button.primary {
 
 /* Keep previous .neon etc. */
 .neon { text-shadow: 0 0 14px rgba(120,200,255,0.5), 0 0 36px rgba(120,200,255,0.25); }
+
+/* ===== Exchange: full-width layout & roomy grid ===== */
+
+/* Widen the store sheet/dialog */
+.store, .store-root, .store-sheet, .store-modal, .store-container {
+  /* whichever your container is, this catches it */
+  max-width: 1400px !important;
+  width: min(96vw, 1400px) !important;
+}
+
+/* Main two-pane layout: keep the left nav narrow, give content the rest */
+.store-layout, .store-body, .store-content-wrap {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 20px 28px;
+}
+@media (max-width: 960px) {
+  .store-layout, .store-body, .store-content-wrap {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* The Exchange tab wrapper (we’ll add this class from JS) */
+.exchange-wide {
+  width: 100%;
+  padding: 16px 8px 28px;
+}
+
+/* Headline & helper text spacing inside Exchange */
+.exchange-wide h2, .exchange-wide h3, .exchange-wide p {
+  max-width: none;
+}
+
+/* Two big cards (“You pay” / “You receive”) side by side with space */
+.exchange-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(320px, 1fr));
+  gap: 24px 40px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .exchange-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Amount buttons (+1, +5, …) as a tidy grid */
+.exchange-amounts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(90px, 1fr));
+  gap: 12px;
+  max-width: 620px;
+}
+@media (max-width: 600px) {
+  .exchange-amounts {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Make the numeric cards bigger and clearer */
+.exchange-card {
+  background: var(--panel, rgba(255,255,255,0.03));
+  border: 1px solid var(--panel-border, rgba(255,255,255,0.08));
+  border-radius: 16px;
+  padding: 16px 18px;
+  min-height: 120px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.18) inset;
+}
+.exchange-card .value {
+  font-size: clamp(28px, 4.2vw, 40px);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+/* Place the confirm button where the eye expects it */
+.exchange-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 12px;
+}
+.exchange-actions-row .spacer {
+  flex: 1;
+}
+
+/* Small print (rate, balance) widened and aligned */
+.exchange-meta {
+  margin-top: 10px;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+/* Ensure the entire right pane isn’t constrained by old max-widths */
+.store-content, .store-right, .store-main {
+  max-width: none !important;
+  width: 100% !important;
+}
