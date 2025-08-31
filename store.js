@@ -129,6 +129,9 @@
           { id:'ball_void', name:'Void', price: C(900,0), preview:{kind:'ball', color:'#0b0b0f'}, glow:true },
           { id:'ball_lava', name:'Lava Core', price: C(0,8), preview:{kind:'ball', color:'#ff5400'}, flame:true },
           { id:'ball_neo', name:'Neon Pulse', price: C(1200,0), preview:{kind:'ball', color:'#39ff14'}, glow:true },
+          // NEW BALLS
+          { id:'ball_galaxy', name:'Galaxy Swirl', price: C(1500,3), preview:{kind:'ball', color:'#7b2ff7'}, glow:true },
+          { id:'ball_gold', name:'Golden Glory', price: C(2500,0), preview:{kind:'ball', color:'#ffd700'}, glow:true },
         ]
       },
       {
@@ -140,6 +143,9 @@
           { id:'bg_sunset', name:'Sunset Drift', price: C(1000,0), preview:{kind:'bg', gradient:['#ff7e5f','#feb47b']} },
           { id:'bg_cyber', name:'Cyber Grid', price: C(0,10), preview:{kind:'bg', gradient:['#0f0c29','#302b63','#24243e']} },
           { id:'bg_mint', name:'Mint Frost', price: C(700,0), preview:{kind:'bg', gradient:['#d9f99d','#10b981']} },
+          // NEW BACKGROUNDS
+          { id:'bg_starry', name:'Starry Night', price: C(0,12), preview:{kind:'bg', gradient:['#0f2027','#203a43','#2c5364']} },
+          { id:'bg_volcano', name:'Volcano Ash', price: C(1600,0), preview:{kind:'bg', gradient:['#2b0f0f','#ff4500']} },
         ]
       }
     ];
