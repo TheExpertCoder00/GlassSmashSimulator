@@ -1,4 +1,21 @@
 (function(){
+  const BBX_EXT = { renderers: {} };
+  function registerExternalTab({ id, name, desc, render, insertAt = 0 }) {
+    const tab = { id, name, desc, items: [], _external: true };
+    Catalog.categories.splice(insertAt, 0, tab);       // add to catalog order
+    BBX_EXT.renderers[id] = render;                    // remember renderer
+
+    // If tabs UI already exists, add a button now
+    const tabsEl = document.querySelector('#bbx-tabs');
+    if (tabsEl) {
+      const b = document.createElement('button');
+      b.className = 'bbx-tab';
+      b.textContent = name;
+      b.dataset.cat = id;
+      b.addEventListener('click', () => selectCategory(id));
+      tabsEl.appendChild(b);
+    }
+  }
   const PRICE_MUL = 3;
   const scaled = (price) => ({
     coins: Math.ceil((price.coins || 0) * PRICE_MUL),
@@ -438,8 +455,19 @@
     const { categories } = Catalog;
     const cat = categories.find(c=>c.id===catId) || categories[0];
     qa('.bbx-tab').forEach(t=> t.classList.toggle('active', t.dataset.cat===cat.id));
-    q('#bbx-catdesc').textContent = cat.desc;
-    const grid = q('#bbx-grid'); grid.innerHTML = '';
+    const grid = q('#bbx-grid');
+    const desc = q('#bbx-catdesc');
+
+    // If an external renderer was registered, use it
+    if (BBX_EXT.renderers[cat.id]) {
+      desc.textContent = cat.desc;
+      BBX_EXT.renderers[cat.id](grid);
+      return;
+    }
+
+    // Default category rendering
+    desc.textContent = cat.desc;
+    grid.innerHTML = '';
     cat.items.forEach(item => grid.appendChild(itemCard(cat, item)));
   }
 
@@ -550,8 +578,16 @@
   // Boot
   document.addEventListener('DOMContentLoaded', ()=> {
     buildOverlay();
-    // Optional: expose API
-    window.Store = { open, close, toggle, Catalog, Inventory };
-  });
-  
+    window.dispatchEvent(new Event('bbx:storeReady'));
+
+    });
+  window.Store = { open, close, toggle, Catalog, Inventory };
+
+  // expose hook + helpers for external tabs:
+  window.Store.registerTab   = registerExternalTab;
+  window.Store.refreshWallet = refreshWallet;
+  window.Store.selectCategory = selectCategory;
+
+  // tell dependents Store is ready
+  window.dispatchEvent(new Event('bbx:storeReady'));
 })();
