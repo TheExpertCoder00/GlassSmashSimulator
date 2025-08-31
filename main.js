@@ -7,11 +7,39 @@
   const coinsEl = document.getElementById('coins')
   const crystalsEl = document.getElementById('crystals')
   const sfx = new window.SFX()
+  const meter = document.getElementById('meter')
   const meterFill = document.getElementById('meterFill')
   const meterCursor = document.getElementById('meterCursor')
   const modal = document.getElementById('howtoModal')
   const playBtn = document.getElementById('playBtn')
   const dontShowAgain = document.getElementById('dontShowAgain')
+
+  document.documentElement.style.height = '100%'
+  document.body.style.height = '100%'
+  document.body.style.overflow = 'hidden'
+  const header = document.querySelector('header')
+  canvas.style.position = 'fixed'
+  canvas.style.inset = '0'
+  canvas.style.width = '100vw'
+  canvas.style.height = '100vh'
+  canvas.style.zIndex = '0'
+  if (header) { header.style.position = 'relative'; header.style.zIndex = '6' }
+  if (meter) {
+    meter.style.position = 'fixed'
+    meter.style.left = '16px'
+    meter.style.right = '16px'
+    meter.style.height = meter.style.height || '18px'
+    meter.style.display = 'block'
+    meter.style.zIndex = '7'
+  }
+
+  function positionMeter(){
+    if (!meter) return
+    const top = (header ? header.offsetHeight + 8 : 8)
+    meter.style.top = top + 'px'
+  }
+  positionMeter()
+  window.addEventListener('resize', positionMeter)
 
   let w, h, dpr
   let basePane
@@ -36,13 +64,13 @@
   function resize(){
     dpr = Math.max(1, Math.min(2, window.devicePixelRatio||1))
     w = canvas.clientWidth = window.innerWidth
-    h = canvas.clientHeight = window.innerHeight - document.querySelector('header').offsetHeight - 20
+    h = canvas.clientHeight = window.innerHeight
     canvas.width = Math.floor(w*dpr)
     canvas.height = Math.floor(h*dpr)
     ctx.setTransform(dpr,0,0,dpr,0,0)
     const PW = Math.min(720, Math.floor(w*0.7))
     const PH = Math.min(420, Math.floor(h*0.6))
-    basePane = { x: Math.floor((w-PW)/2), y: Math.floor((h-PH)/2), w: PW, h: PH }
+    basePane = { x: Math.floor((w-PW)/2), y: Math.floor((h-PH)/2 + (header? header.offsetHeight*0.15 : 0)), w: PW, h: PH }
     rebuildPaneRects()
     updateBuyBtn()
   }
@@ -70,7 +98,7 @@
       meterVal = Math.max(0, Math.min(1, startMeterVal + dx / meterWidth))
       meterFill.style.width = `${meterVal*100}%`
       meterCursor.style.left = `${meterVal*100}%`
-      document.getElementById('meter').style.setProperty('--cursor-x', `${meterVal*100}%`)
+      meter.style.setProperty('--cursor-x', `${meterVal*100}%`)
     }
     const upHandler = () => {
       window.removeEventListener('mousemove', moveHandler)
@@ -84,14 +112,115 @@
   function shardCountFor(power){ if(power<=0.4) return 20; return 70 }
   function panesToBreakFor(power,total){ return Math.max(1, Math.round(1 + power*(total-1))) }
   function coinsPerPane(raw){ if(raw<0.25 || raw>0.75) return 10; return 30 }
-  function isPerfect(raw){ return raw >= 0.48 && raw <= 0.52 }
+
+  const gradients = {
+    bg_arena_blue: ['#0ea5e9', '#1e3a8a'],
+    bg_sunset: ['#ff7e5f', '#feb47b'],
+    bg_cyber: ['#0f0c29', '#302b63', '#24243e'],
+    bg_mint: ['#d9f99d', '#10b981']
+  }
+  const ballColors = {
+    ball_basic: '#f48c06',
+    ball_ice: '#a8dadc',
+    ball_void: '#111217',
+    ball_lava: '#ff5400',
+    ball_neo: '#39ff14'
+  }
+
+  function getEquippedInitial(){
+    try{
+      const raw = localStorage.getItem('bbx_inventory')
+      if(!raw) return { ball:'ball_basic', background:'bg_arena_blue' }
+      const inv = JSON.parse(raw)
+      const b = inv?.equipped?.ball || 'ball_basic'
+      const bg = inv?.equipped?.background || 'bg_arena_blue'
+      return { ball:b, background:bg }
+    }catch(e){
+      return { ball:'ball_basic', background:'bg_arena_blue' }
+    }
+  }
+  let equipped = getEquippedInitial()
+  window.addEventListener('bbx:inventoryChanged', (e) => {
+    const { kind, id } = e.detail || {};
+    if (kind === 'ball') equipped.ball = id;
+    if (kind === 'background') equipped.background = id;
+  });
+  
+  let coinMul = 0
+  let gemMul = 0
+  let powerWinBonus = 0
+
+  function readActivePowerups(){
+    try{
+      const raw = localStorage.getItem('bbx_powerups')
+      if(!raw) return {}
+      return JSON.parse(raw)||{}
+    }catch(e){
+      return {}
+    }
+  }
+  function recalcBoosts(){
+    coinMul = 0
+    gemMul = 0
+    powerWinBonus = 0
+    const active = readActivePowerups()
+    const now = Date.now()
+    for (const id in active){
+      const pu = active[id]
+      if (pu.expiresAt && now>=pu.expiresAt) continue
+      if (pu.type==='consumable' && pu.uses!=null && pu.uses<=0) continue
+      if (pu.effect?.coin_multiplier) coinMul += pu.effect.coin_multiplier
+      if (pu.effect?.gem_multiplier) gemMul += pu.effect.gem_multiplier
+      if (pu.effect?.power_window_pct) powerWinBonus += pu.effect.power_window_pct
+    }
+  }
+  function consumeOneUseAllConsumables(){
+    const active = readActivePowerups()
+    let changed = false
+    for(const id in active){
+      const pu = active[id]
+      if(pu.type==='consumable' && pu.uses!=null && pu.uses>0){
+        pu.uses -= 1
+        changed = true
+        if(pu.uses<=0){
+          delete active[id]
+          window.dispatchEvent(new CustomEvent('bbx:powerupExpired', { detail: { id } }))
+        }
+      }
+    }
+    if(changed) localStorage.setItem('bbx_powerups', JSON.stringify(active))
+  }
+  window.addEventListener('bbx:powerupActivated', recalcBoosts)
+  window.addEventListener('bbx:powerupExpired', recalcBoosts)
+
+  function isPerfect(raw){
+    const side = 0.02*(1+powerWinBonus)
+    return raw >= 0.5 - side && raw <= 0.5 + side
+  }
 
   function coinCost(){ return Math.floor(200*Math.pow(1.8, maxUnlocked-1)) }
   function crystalCost(){ return Math.pow(2, Math.max(0, maxUnlocked-1)) }
 
+  function getG(){ return (Economy.getGems ? Economy.getGems() : (Economy.getCrystals ? Economy.getCrystals() : 0)) }
+  function spendG(n){
+    if (Economy.spendGems) return Economy.spendGems(n)
+    if (Economy.spendCrystals) return Economy.spendCrystals(n)
+    if (Economy.setCrystals && Economy.getCrystals && Economy.getCrystals() >= n){ Economy.setCrystals(Economy.getCrystals()-n); return true }
+    return false
+  }
+  if (!Economy.canSpend) Economy.canSpend = (c,g) => (Economy.getCoins() >= c) && (getG() >= g)
+  if (!Economy.spend) Economy.spend = (c,g) => {
+    const okC = c ? (Economy.spendCoins ? Economy.spendCoins(c) : false) : true
+    if (!okC) return false
+    if (!g) return true
+    const okG = spendG(g)
+    if (!okG && c && Economy.addCoins) Economy.addCoins(c)
+    return okG
+  }
+
   function updateHud(){
     coinsEl.textContent = Economy.getCoins()
-    crystalsEl.textContent = Economy.getCrystals()
+    crystalsEl.textContent = (Economy.getCrystals ? Economy.getCrystals() : (Economy.getGems ? Economy.getGems() : 0))
   }
 
   function updateBuyBtn(){
@@ -110,6 +239,7 @@
     panes.push({ rect: paneRectAt(panes.length), broken:false })
     updateHud()
     updateBuyBtn()
+    window.dispatchEvent(new Event('bbx:walletPing'))
   })
 
   resetBtn.addEventListener('click', reset)
@@ -118,8 +248,7 @@
   })
   window.addEventListener('keydown', (e) => {
     if (e.code === 'Space') {
-      e.preventDefault() // stops page scroll
-      // fake a click in the center of the first pane
+      e.preventDefault()
       const first = panes[0]?.rect
       if (!first || shatteredOnce) return
       const mx = first.x + first.w/2
@@ -131,6 +260,7 @@
       canvas.dispatchEvent(evt)
     }
   })
+  document.addEventListener('touchmove', (e)=>{ e.preventDefault() }, { passive:false })
 
   let shake = 0
   function addShake(s){ shake = Math.min(22, shake + s) }
@@ -197,12 +327,20 @@
     }
     shatteredOnce = true
 
-    const gainCoins = coinsPerPane(raw) * broke
-    const gainCrystal = isPerfect(raw) ? 1 : 0
+    recalcBoosts()
+    let gainCoins = coinsPerPane(raw) * broke
+    gainCoins = Math.floor(gainCoins * (1 + Math.max(0, coinMul)))
+    let gainCrystal = isPerfect(raw) ? 1 : 0
+    gainCrystal = Math.floor(gainCrystal * (1 + Math.max(0, gemMul)))
     if (gainCoins) Economy.addCoins(gainCoins)
-    if (gainCrystal) Economy.addCrystals(gainCrystal)
+    if (gainCrystal) {
+      if (Economy.addCrystals) Economy.addCrystals(gainCrystal)
+      else if (Economy.addGems) Economy.addGems(gainCrystal)
+    }
+    consumeOneUseAllConsumables()
     updateHud()
     updateBuyBtn()
+    window.dispatchEvent(new Event('bbx:walletPing'))
 
     setTimeout(() => { if (ball) ball.active = false }, 200)
     const sfxIntensity = Math.min(1.5, power + 0.15*(broke-1))
@@ -226,7 +364,7 @@
     if (meterVal <= 0) { meterVal = 0; meterDir = 1 }
     meterFill.style.width = (meterVal*100).toFixed(1) + '%'
     meterCursor.style.left = (meterVal*100).toFixed(1) + '%'
-    document.getElementById('meter').style.setProperty('--cursor-x', `${(meterVal*100).toFixed(1)}%`)
+    meter.style.setProperty('--cursor-x', `${(meterVal*100).toFixed(1)}%`)
 
     if (ball?.active) {
       ball.x += ball.vx * dt
@@ -271,11 +409,20 @@
 
   function drawBackground(){
     ctx.clearRect(0,0,w,h)
-    const g = ctx.createLinearGradient(0,0,w,h)
-    g.addColorStop(0, 'rgba(20,30,45,0.9)')
-    g.addColorStop(1, 'rgba(10,14,22,0.9)')
-    ctx.fillStyle = g
-    ctx.fillRect(0,0,w,h)
+    const gsel = gradients[equipped.background]
+    if (gsel){
+      const g = ctx.createLinearGradient(0,0,w,h)
+      const stops = gsel.length-1
+      gsel.forEach((c,i)=> g.addColorStop(stops? i/stops : 0, c))
+      ctx.fillStyle = g
+      ctx.fillRect(0,0,w,h)
+    } else {
+      const g = ctx.createLinearGradient(0,0,w,h)
+      g.addColorStop(0, 'rgba(20,30,45,0.9)')
+      g.addColorStop(1, 'rgba(10,14,22,0.9)')
+      ctx.fillStyle = g
+      ctx.fillRect(0,0,w,h)
+    }
 
     ctx.globalCompositeOperation = 'lighter'
     const r1 = ctx.createRadialGradient(w*0.2, h*0.2, 0, w*0.2, h*0.2, 260)
@@ -358,10 +505,11 @@
 
   function drawBall(){
     if (!ball?.active) return
+    const bc = ballColors[equipped.ball] || '#ffffff'
     ctx.save()
     ctx.shadowBlur = 28*ball.glow
     ctx.shadowColor = 'rgba(160,220,255,0.7)'
-    ctx.fillStyle = 'rgba(255,255,255,0.95)'
+    ctx.fillStyle = bc
     ctx.beginPath()
     ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2)
     ctx.fill()
@@ -402,12 +550,13 @@
   }
 
   resize()
-  if (Economy.getCoins()==null) Economy.setCoins(0)
-  if (Economy.getCrystals()==null) Economy.setCrystals(0)
+  if (Economy.getCoins==null || Economy.getCoins()==null) { if (Economy.setCoins) Economy.setCoins(0) }
+  if ((Economy.getCrystals==null || Economy.getCrystals()==null) && Economy.setCrystals) { Economy.setCrystals(0) }
   panes = buildPanes(getMaxUnlocked())
   updateHud()
   updateBuyBtn()
   bootGlow()
   showModalIfNeeded()
+  window.dispatchEvent(new Event('bbx:walletPing'))
   loop()
 })()
