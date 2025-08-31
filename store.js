@@ -1,4 +1,10 @@
 (function(){
+  const PRICE_MUL = 3;
+  const scaled = (price) => ({
+    coins: Math.ceil((price.coins || 0) * PRICE_MUL),
+    gems:  Math.ceil((price.gems  || 0) * PRICE_MUL),
+  });
+
   const LS_KEYS = {
     WALLET: 'bbx_wallet',
     INVENTORY: 'bbx_inventory',
@@ -72,11 +78,11 @@
         items: [
           {
             id: 'pu_power_window_10',
-            name: 'Perfect Zone +10% (10 throws)',
+            name: 'Perfect Zone +5% (10 throws)',
             price: C(500,0),
             preview: { kind: 'icon', svg: iconGauge() },
             type: 'consumable',
-            effect: { power_window_pct: 0.10, uses: 10 },
+            effect: { power_window_pct: 0.05, uses: 10 },
           },
           {
             id: 'pu_coin_doubler_5m',
@@ -280,16 +286,17 @@
   }
 
   function pricePills(price){
+    const p2 = scaled(price);
     const pills = document.createElement('div'); pills.className='bbx-price';
-    if (price.coins>0){
-      const p = pill(iconCoins(), fmt.format(price.coins));
+    if (p2.coins>0){
+      const p = pill(iconCoins(), fmt.format(p2.coins));
       pills.appendChild(p);
     }
-    if (price.gems>0){
-      const p = pill(iconGem(), fmt.format(price.gems));
+    if (p2.gems>0){
+      const p = pill(iconGem(), fmt.format(p2.gems));
       pills.appendChild(p);
     }
-    if (price.coins===0 && price.gems===0){
+    if (p2.coins===0 && p2.gems===0){
       const p = pill(iconStore(), 'Free'); pills.appendChild(p);
     }
     return pills;
@@ -302,14 +309,16 @@
   }
 
   function canAfford(price){
-    return Economy.getCoins() >= (price.coins||0) && Economy.getGems() >= (price.gems||0);
+    const p2 = scaled(price);
+    return Economy.getCoins() >= p2.coins && Economy.getGems() >= p2.gems;
   }
   function charge(price){
-    const okCoins = (price.coins||0)===0 || Economy.spendCoins(price.coins);
+    const p2 = scaled(price);
+    const okCoins = (p2.coins||0)===0 || Economy.spendCoins(p2.coins);
     if (!okCoins) return false;
-    const okGems = (price.gems||0)===0 || Economy.spendGems(price.gems);
+    const okGems = (p2.gems||0)===0 || Economy.spendGems(p2.gems);
     if (!okGems){ // refund coins if gems fail
-      if (price.coins) Economy.addCoins(price.coins);
+      if (p2.coins) Economy.addCoins(p2.coins);
       return false;
     }
     return true;

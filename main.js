@@ -145,7 +145,7 @@
     if (kind === 'ball') equipped.ball = id;
     if (kind === 'background') equipped.background = id;
   });
-  
+
   let coinMul = 0
   let gemMul = 0
   let powerWinBonus = 0
@@ -173,6 +173,7 @@
       if (pu.effect?.gem_multiplier) gemMul += pu.effect.gem_multiplier
       if (pu.effect?.power_window_pct) powerWinBonus += pu.effect.power_window_pct
     }
+    updateCrystalZoneVisual();
   }
   function consumeOneUseAllConsumables(){
     const active = readActivePowerups()
@@ -190,12 +191,19 @@
     }
     if(changed) localStorage.setItem('bbx_powerups', JSON.stringify(active))
   }
-  window.addEventListener('bbx:powerupActivated', recalcBoosts)
-  window.addEventListener('bbx:powerupExpired', recalcBoosts)
+  window.addEventListener('bbx:powerupActivated', () => { recalcBoosts(); updateCrystalZoneVisual(); });
+  window.addEventListener('bbx:powerupExpired', () => { recalcBoosts(); updateCrystalZoneVisual(); });
 
   function isPerfect(raw){
-    const side = 0.02*(1+powerWinBonus)
+    const side = 0.02 + powerWinBonus;
     return raw >= 0.5 - side && raw <= 0.5 + side
+  }
+  function updateCrystalZoneVisual() {
+    const zone = document.getElementById('crystalZone');
+    if (!zone) return;
+    const half = 0.02 + powerWinBonus;
+    zone.style.left = (50 - half * 100) + '%';
+    zone.style.width = (half * 2 * 100) + '%';
   }
 
   function coinCost(){ return Math.floor(200*Math.pow(1.8, maxUnlocked-1)) }
@@ -558,5 +566,6 @@
   bootGlow()
   showModalIfNeeded()
   window.dispatchEvent(new Event('bbx:walletPing'))
+  recalcBoosts();
   loop()
 })()
